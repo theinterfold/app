@@ -86,7 +86,9 @@ class ProxyUtils {
             `script-src 'self' 'nonce-${nonce}' https: ${scriptSrc}`,
             `style-src 'self' https://fonts.googleapis.com 'unsafe-inline'`,
             'img-src * blob: data:',
-            'connect-src *',
+            // `*` does not cover data: and blob:, which in-browser proof generation needs
+            // (circuit loaded from a data: URI).
+            'connect-src * data: blob:',
             `font-src 'self' https://fonts.gstatic.com`,
             "object-src 'self'",
             "base-uri 'self'",

@@ -1,11 +1,16 @@
 export type { IActionComposerPluginData } from './actionComposerPluginData';
 export type { IBuildCreateProposalDataParams } from './buildCreateProposalDataParams';
+export type { IBuildCreateProposalParamsParams } from './buildCreateProposalParamsParams';
 export type {
     IBuildVoteDataOption,
     IBuildVoteDataParams,
 } from './buildVoteDataParams';
 export type { ICanCreateProposalResult } from './canCreateProposalResult';
 export type { ICreateProposalPageParams } from './createProposalPageParams';
+export type {
+    ICreateProposalPrerequisiteStepsParams,
+    ICreateProposalPrerequisiteStepsResult,
+} from './createProposalPrerequisiteStepsParams';
 export type { IDaoMemberPageParams } from './daoMemberPageParams';
 export type { IDaoProposalPageParams } from './daoProposalPageParams';
 export type { IMemberExistsResult } from './memberExistsResult';

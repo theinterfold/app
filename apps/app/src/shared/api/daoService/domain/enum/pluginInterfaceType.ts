@@ -8,5 +8,6 @@ export enum PluginInterfaceType {
     LOCK_TO_VOTE = 'lockToVote',
     SAFE = 'safe',
     CROSS_CHAIN_CONTROLLER = 'crossChainController',
+    CRISP = 'crisp',
     UNKNOWN = 'unknown',
 }
