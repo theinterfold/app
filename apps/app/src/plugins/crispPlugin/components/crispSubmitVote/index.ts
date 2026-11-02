@@ -1,0 +1,1 @@
+export { CrispSubmitVote } from './crispSubmitVote';

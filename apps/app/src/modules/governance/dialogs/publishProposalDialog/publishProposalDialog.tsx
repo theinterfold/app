@@ -1,4 +1,5 @@
 import {
+    addressUtils,
     invariant,
     ProposalDataListItem,
     ProposalStatus,
@@ -15,11 +16,18 @@ import {
     type ITransactionDialogStep,
     type ITransactionDialogStepMeta,
     TransactionDialog,
-    type TransactionDialogStep,
 } from '@/shared/components/transactionDialog';
 import { useTranslations } from '@/shared/components/translationsProvider';
+import { useDaoPlugins } from '@/shared/hooks/useDaoPlugins';
 import { useStepper } from '@/shared/hooks/useStepper';
 import { daoUtils } from '@/shared/utils/daoUtils';
+import { pluginRegistryUtils } from '@/shared/utils/pluginRegistryUtils';
+import { GovernanceSlotId } from '../../constants/moduleSlots';
+import type {
+    ICreateProposalPrerequisiteStepsParams,
+    ICreateProposalPrerequisiteStepsResult,
+} from '../../types';
+import { PrerequisiteStepsCollector } from './prerequisiteStepsCollector';
 import type { IPublishProposalDialogProps } from './publishProposalDialog.api';
 import { publishProposalDialogUtils } from './publishProposalDialogUtils';
 
@@ -68,10 +76,7 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
         slug: indexedProposalSlug,
     });
 
-    const stepper = useStepper<
-        ITransactionDialogStepMeta,
-        PublishProposalStep | TransactionDialogStep
-    >({
+    const stepper = useStepper<ITransactionDialogStepMeta, string>({
         initialActiveStep: PublishProposalStep.PIN_METADATA,
     });
 
@@ -81,13 +86,77 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
         mutate: pinJson,
     } = usePinJson({ onSuccess: stepper.nextStep });
 
+    const subPlugins = useDaoPlugins({
+        daoId,
+        includeSubPlugins: true,
+        includeLinkedAccounts: true,
+    });
+
+    // Publishing to a staged process creates a proposal on each of its bodies, so the
+    // prerequisites of the bodies apply as well.
+    const prerequisitePlugins = useMemo(() => {
+        const bodies = (subPlugins ?? [])
+            .map((item) => item.meta)
+            .filter((body) =>
+                addressUtils.isAddressEqual(body.parentPlugin, plugin.address),
+            );
+
+        return [plugin, ...bodies].flatMap((item) => {
+            const usePrerequisiteSteps = pluginRegistryUtils.getSlotFunction<
+                ICreateProposalPrerequisiteStepsParams,
+                ICreateProposalPrerequisiteStepsResult
+            >({
+                slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_PREREQUISITE_STEPS,
+                pluginId: item.interfaceType,
+            });
+
+            return usePrerequisiteSteps
+                ? [{ plugin: item, usePrerequisiteSteps }]
+                : [];
+        });
+    }, [subPlugins, plugin]);
+
+    const [prerequisites, setPrerequisites] = useState<
+        Record<string, ICreateProposalPrerequisiteStepsResult>
+    >({});
+
+    const handlePrerequisitesChange = useCallback(
+        (
+            pluginAddress: string,
+            result: ICreateProposalPrerequisiteStepsResult,
+        ) =>
+            setPrerequisites((current) => ({
+                ...current,
+                [pluginAddress]: result,
+            })),
+        [],
+    );
+
+    const prerequisiteSteps = useMemo(
+        () =>
+            prerequisitePlugins.flatMap(
+                ({ plugin: item }) => prerequisites[item.address]?.steps ?? [],
+            ),
+        [prerequisitePlugins, prerequisites],
+    );
+
+    // A plugin that has not reported yet looks like one without prerequisites, so the dialog
+    // only starts once every plugin has resolved its steps.
+    const arePrerequisitesResolved = prerequisitePlugins.every(
+        ({ plugin: item }) => prerequisites[item.address]?.isResolved === true,
+    );
+
     const handlePinJson = useCallback(
         (params: ITransactionDialogActionParams) => {
+            if (!arePrerequisitesResolved) {
+                return;
+            }
+
             const proposalMetadata =
                 publishProposalDialogUtils.prepareMetadata(proposal);
             pinJson({ body: proposalMetadata }, params);
         },
-        [pinJson, proposal],
+        [pinJson, proposal, arePrerequisitesResolved],
     );
 
     const handleIndexed = useCallback((result: { slug?: string }) => {
@@ -137,7 +206,7 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
         return daoUtils.getDaoUrl(dao, proposalPath)!;
     };
 
-    const customSteps: ITransactionDialogStep<PublishProposalStep>[] = useMemo(
+    const customSteps: ITransactionDialogStep[] = useMemo(
         () => [
             {
                 id: PublishProposalStep.PIN_METADATA,
@@ -151,11 +220,15 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
                     ),
                     state: status,
                     action: handlePinJson,
-                    auto: true,
+                    auto: arePrerequisitesResolved,
                 },
             },
+            ...prerequisiteSteps.map((step, index) => ({
+                ...step,
+                order: index + 1,
+            })),
         ],
-        [status, handlePinJson, t],
+        [status, handlePinJson, prerequisiteSteps, t, arePrerequisitesResolved],
     );
 
     const namespace =
@@ -183,7 +256,7 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
     );
 
     return (
-        <TransactionDialog<PublishProposalStep>
+        <TransactionDialog
             analytics={{
                 flow: 'create_proposal',
                 transactionTypeEvent: 'governance_proposal_create',
@@ -205,6 +278,19 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
             transactionInfo={transactionInfo}
             transactionType={TransactionType.PROPOSAL_CREATE}
         >
+            {prerequisitePlugins.map(
+                ({ plugin: item, usePrerequisiteSteps }) => (
+                    <PrerequisiteStepsCollector
+                        daoId={daoId}
+                        key={item.address}
+                        onChange={handlePrerequisitesChange}
+                        onSuccess={stepper.nextStep}
+                        plugin={item}
+                        proposal={proposal}
+                        usePrerequisiteSteps={usePrerequisiteSteps}
+                    />
+                ),
+            )}
             {rendersProposalStatusCard && (
                 <ProposalDataListItem.Structure
                     id={indexedProposalSlug?.toUpperCase()}

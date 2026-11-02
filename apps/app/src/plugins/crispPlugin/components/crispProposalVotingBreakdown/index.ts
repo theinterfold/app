@@ -1,0 +1,1 @@
+export { CrispProposalVotingBreakdown } from './crispProposalVotingBreakdown';

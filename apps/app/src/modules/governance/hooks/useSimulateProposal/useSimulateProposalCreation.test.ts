@@ -5,6 +5,7 @@ import * as useWalletAccountModule from '@/modules/application/hooks/useWalletAc
 import { Network } from '@/shared/api/daoService';
 import { generateDaoPlugin } from '@/shared/testUtils';
 import { pluginRegistryUtils } from '@/shared/utils/pluginRegistryUtils';
+import { GovernanceSlotId } from '../../constants/moduleSlots';
 import { publishProposalDialogUtils } from '../../dialogs/publishProposalDialog/publishProposalDialogUtils';
 import { useSimulateProposalCreation } from './useSimulateProposalCreation';
 
@@ -48,7 +49,11 @@ describe('useSimulateProposalCreation hook', () => {
             data: '0x',
             value: BigInt(0),
         });
-        getSlotFunctionSpy.mockReturnValue(jest.fn());
+        getSlotFunctionSpy.mockImplementation(({ slotId }) =>
+            slotId === GovernanceSlotId.GOVERNANCE_BUILD_CREATE_PROPOSAL_DATA
+                ? jest.fn()
+                : undefined,
+        );
         useCallSpy.mockReturnValue(buildResult({}));
     });
 
@@ -83,6 +88,22 @@ describe('useSimulateProposalCreation hook', () => {
         const { result } = renderSimulation();
 
         expect(result.current.result).toBe('success');
+        expect(result.current.isError).toBeFalsy();
+    });
+
+    it('does not report failure when the plugin has prerequisite steps the simulation cannot satisfy', () => {
+        getSlotFunctionSpy.mockReturnValue(() => ({
+            steps: [],
+            isResolved: true,
+        }));
+        const error = new BaseError('reverted', {
+            cause: new ExecutionRevertedError({}),
+        });
+        useCallSpy.mockReturnValue(buildResult({ isError: true, error }));
+
+        const { result } = renderSimulation();
+
+        expect(result.current.result).toBeUndefined();
         expect(result.current.isError).toBeFalsy();
     });
 

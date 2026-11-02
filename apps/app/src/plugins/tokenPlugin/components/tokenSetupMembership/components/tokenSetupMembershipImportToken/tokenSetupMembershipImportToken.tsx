@@ -28,12 +28,17 @@ export interface ITokenSetupMembershipImportTokenProps {
      * ID of the DAO.
      */
     daoId: string;
+    /**
+     * Rejects tokens that do not support governance (IVotes) instead of wrapping them, and skips
+     * the delegation check.
+     */
+    disableWrapping?: boolean;
 }
 
 export const TokenSetupMembershipImportToken: React.FC<
     ITokenSetupMembershipImportTokenProps
 > = (props) => {
-    const { formPrefix, daoId } = props;
+    const { formPrefix, daoId, disableWrapping = false } = props;
     const { t } = useTranslations();
     // What importing a token takes, on the help center; the developer portal's guide while the
     // help center is off.
@@ -95,12 +100,21 @@ export const TokenSetupMembershipImportToken: React.FC<
             setValue(`${tokenFormPrefix}.name`, name);
             setValue(`${tokenFormPrefix}.symbol`, symbol);
             setValue(`${tokenFormPrefix}.totalSupply`, totalSupply);
+        } else if (disableWrapping) {
+            // Leaves the required name empty, which keeps the form invalid.
+            setValue(`${tokenFormPrefix}.name`, '');
         } else {
             setValue(`${tokenFormPrefix}.name`, `Governance ${name}`);
             setValue(`${tokenFormPrefix}.symbol`, `g${symbol}`);
             setValue(`${tokenFormPrefix}.totalSupply`, '0');
         }
-    }, [isGovernanceCompatible, setValue, token, tokenFormPrefix]);
+    }, [
+        disableWrapping,
+        isGovernanceCompatible,
+        setValue,
+        token,
+        tokenFormPrefix,
+    ]);
 
     const getCompatibilityState = (
         isCompatible: boolean | undefined,
@@ -142,14 +156,18 @@ export const TokenSetupMembershipImportToken: React.FC<
                 state: governanceStepState,
             },
         },
-        {
-            id: 'delegation',
-            order: 0,
-            meta: {
-                label: getStepLabel('delegation'),
-                state: delegationStepState,
-            },
-        },
+        ...(disableWrapping
+            ? []
+            : [
+                  {
+                      id: 'delegation',
+                      order: 0,
+                      meta: {
+                          label: getStepLabel('delegation'),
+                          state: delegationStepState,
+                      },
+                  },
+              ]),
     ];
 
     const isTokenCheckCardVisible = !!importTokenAddress;
@@ -157,7 +175,9 @@ export const TokenSetupMembershipImportToken: React.FC<
     const displayAlert = isError || isGovernanceCompatible === false;
     const alertContext = isError
         ? 'notErc20Compatible'
-        : 'notGovernanceCompatible';
+        : disableWrapping
+          ? 'notGovernanceSupported'
+          : 'notGovernanceCompatible';
     const alertNamespace = `app.plugins.token.tokenSetupMembership.importToken.alert.${alertContext}`;
 
     const transactionInfo: ITransactionInfo = {
@@ -196,9 +216,9 @@ export const TokenSetupMembershipImportToken: React.FC<
                 <AlertCard
                     message={t(`${alertNamespace}.message`)}
                     variant={
-                        alertContext === 'notErc20Compatible'
-                            ? 'critical'
-                            : 'warning'
+                        alertContext === 'notGovernanceCompatible'
+                            ? 'warning'
+                            : 'critical'
                     }
                 >
                     <div className="flex flex-col gap-3">

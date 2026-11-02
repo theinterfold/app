@@ -2645,6 +2645,207 @@
           }
         }
       },
+      "crisp": {
+        "crispActions": {
+          "UpdateCrispVoteSettings": "Update settings"
+        },
+        "crispCreateProposalPrerequisiteSteps": {
+          "step": {
+            "DEPOSIT_FEE": {
+              "errorLabel": "Credit not added",
+              "label": "Add proposal fee credit"
+            }
+          }
+        },
+        "crispCreateProposalSettingsForm": {
+          "endTime": {
+            "infoText": "The minimum duration is {{days}} days, {{hours}} hours, and {{minutes}} minutes, set by DAO governance. The private computation fee grows with the duration.",
+            "label": "Voting duration / end time"
+          },
+          "startTime": {
+            "label": "Voting start time"
+          }
+        },
+        "crispProposalFeeCredit": {
+          "buttons": {
+            "deposit": "Add credit",
+            "withdraw": "Withdraw credit"
+          },
+          "credit": "Your credit",
+          "error": {
+            "balance": "Your wallet does not hold enough {{symbol}} to add the credit this proposal needs.",
+            "deposit": "The credit could not be added. Nothing was deposited.",
+            "quote": "The private computation fee could not be quoted for this process. Proposals cannot be created until this is resolved.",
+            "unavailable": "The fee, your credit or your balance could not be read. Reload the page and try again."
+          },
+          "fee": "Private computation fee",
+          "shortfall": "Your credit does not cover this proposal's fee. Add credit to continue."
+        },
+        "crispGovernanceSettings": {
+          "approvalThreshold": "Support threshold",
+          "ballotPrivacy": "Ballot privacy",
+          "duration": "{{days}} days {{hours}} hours {{minutes}} minutes",
+          "encrypted": "Encrypted",
+          "minimumDuration": "Proposal duration",
+          "minimumParticipation": "Minimum participation",
+          "participation": "≥ {{participation}}  (≥ {{tokenValue}} {{tokenSymbol}})",
+          "proposalThreshold": "Proposal creation",
+          "threshold": "> {{threshold}}",
+          "voteThreshold": "Vote eligibility",
+          "votingPowerAccess": "Members with ≥ {{balance}} {{symbol}} voting power"
+        },
+        "crispMinVoterVotingPowerField": {
+          "helpText": "Only members with at least this much voting power at the snapshot can vote.",
+          "label": "Minimum voting power to vote"
+        },
+        "crispPermissionCheckProposalCreation": {
+          "function": "Proposal creation",
+          "pluginNameLabel": "Name",
+          "userVotingPower": "Your voting power"
+        },
+        "crispPermissionCheckVoteSubmission": {
+          "createdAt": "Created",
+          "membership": "Required voting power",
+          "snapshotVotingPower": "Your voting power at the snapshot"
+        },
+        "crispProcessBodyField": {
+          "ballotPrivacyTerm": "Ballot privacy",
+          "distributionTerm": "Distribution",
+          "encrypted": "Encrypted",
+          "holders": "{{count}} holders",
+          "minParticipationDefinition": "≥ {{minParticipation}}%",
+          "minParticipationTerm": "Minimum participation",
+          "proposalDurationDefinition": "{{days}} days {{hours}} hours {{minutes}} minutes",
+          "proposalDurationTerm": "Proposal duration",
+          "supplyTerm": "Total supply",
+          "supportThresholdDefinition": "> {{supportThreshold}}%",
+          "supportThresholdTerm": "Support threshold",
+          "tokenNameAndSymbol": "{{tokenName}} ({{tokenSymbol}})",
+          "tokenTerm": "Token"
+        },
+        "crispProposalCreationSettings": {
+          "notSupported": "Proposal creation cannot be restricted to this body in a staged process, because CRISP does not provide a creation condition."
+        },
+        "crispProposalRefund": {
+          "cause": {
+            "committee": "The Interfold ciphernode committee could not be formed or did not generate its key, so ballots could not be collected.",
+            "compute": "The encrypted ballots could not be computed in time.",
+            "decryption": "The ciphernode committee did not publish a valid tally in time.",
+            "unknown": "The private voting round failed."
+          },
+          "heading": "Private voting round failed",
+          "refund": {
+            "available": "The fee paid for this round can be reclaimed.",
+            "claimed": "The fee was refunded to your fee credit.",
+            "none": "No refund is available for this round.",
+            "payer": "The fee is refunded to the fee credit of the account that paid for it."
+          },
+          "withdraw": "Withdraw {{amount}} {{symbol}}"
+        },
+        "crispProposalVotingBreakdown": {
+          "encrypted": {
+            "description": "Ballots are encrypted and will be tallied by the Interfold ciphernode committee once voting ends.",
+            "heading": "Results are encrypted"
+          }
+        },
+        "crispProposalVotingSummary": {
+          "approved": "approved",
+          "encrypted": "ballots encrypted",
+          "failed": "round failed",
+          "notApproved": "not approved",
+          "notVetoed": "not vetoed",
+          "vetoed": "vetoed"
+        },
+        "crispRefundDialog": {
+          "claim": {
+            "description": "Credits the fee paid for this proposal back to your fee credit. You can withdraw it afterwards.",
+            "submit": "Claim refund",
+            "title": "Claim refund"
+          },
+          "markFailed": {
+            "description": "Records the failed round on the Interfold coordinator so its fee can be refunded. The coordinator only accepts this once the round's deadline has passed.",
+            "submit": "Mark as failed",
+            "title": "Mark round as failed"
+          },
+          "processFailure": {
+            "description": "Calculates the refund of the failed round on the Interfold coordinator.",
+            "submit": "Process failure",
+            "title": "Process failed round"
+          },
+          "success": "Done"
+        },
+        "crispSetupGovernance": {
+          "proposalDuration": {
+            "alertInfo": "The voting duration defines how long members can submit their encrypted ballots.",
+            "helpText": "Define how long each proposal is open for encrypted voting.",
+            "label": "Proposal duration"
+          }
+        },
+        "crispSubmitVote": {
+          "buttons": {
+            "cancel": "Cancel",
+            "submit": "Submit encrypted vote",
+            "vote": "Vote"
+          }
+        },
+        "crispSubmitVoteDialog": {
+          "action": {
+            "done": "Done",
+            "retry": "Try again",
+            "submit": "Submit vote"
+          },
+          "alert": {
+            "error": "Your ballot could not be submitted.",
+            "roundNotReady": "The ciphernode committee has not published its key yet. Ballots can be submitted shortly after voting opens.",
+            "slotActive": "Your voting slot already holds an entry in this round, which can be your earlier ballot or a privacy mask. Submitting now replaces it.",
+            "voteSubmitted": "Your encrypted ballot was submitted.",
+            "voteUpdated": "Your encrypted ballot replaced the previous entry in your voting slot.",
+            "walletFallback": "The CRISP network could not submit your ballot for you. Confirm the transaction in your wallet to submit it."
+          },
+          "description": "Your ballot is encrypted in your browser and stays private until the results are published. Keep this tab open until all steps complete.",
+          "method": {
+            "direct": "Send it myself",
+            "directHelpText": "You send the transaction and pay the gas. Nobody can withhold your ballot.",
+            "label": "How to submit",
+            "relay": "Submit for free",
+            "relayHelpText": "The CRISP network submits your ballot for you, at no cost. Either way your vote stays encrypted."
+          },
+          "randomize": {
+            "helpTextOff": "Your whole voting power counts. Voting powers are public and the totals are published, so this can help observers work out how you voted.",
+            "helpTextOn": "Your ballot counts a random amount up to 1% below your voting power. This stops observers from working out how you voted from the published totals.",
+            "helpTextShare": "Your ballot counts {{share}} of your voting power. The small random reduction, at most 1%, stops observers from working out how you voted from the published totals.",
+            "label": "Voting power",
+            "switch": "Randomize the voting power my ballot counts"
+          },
+          "step": {
+            "broadcast": "Submitting your ballot",
+            "broadcastDirect": "Confirming your transaction",
+            "encrypt": "Encrypting your ballot",
+            "prove": "Generating the validity proof",
+            "sign": "Signing to authorise your ballot"
+          },
+          "title": "Submit encrypted vote",
+          "transactionLink": "View transaction"
+        },
+        "crispVoteList": {
+          "emptyState": {
+            "description": "Ballots are encrypted and broadcast privately, individual votes are never public.",
+            "heading": "Votes are private"
+          }
+        },
+        "crispWithdrawCreditDialog": {
+          "description": "Withdraws {{amount}} {{symbol}} of unused fee credit to your wallet.",
+          "submit": "Withdraw",
+          "success": "Done",
+          "title": "Withdraw fee credit"
+        },
+        "meta": {
+          "setup": {
+            "description": "Token-weighted voting with encrypted ballots on The Interfold.",
+            "name": "CRISP private voting"
+          }
+        }
+      },
       "crossChainController": {
         "crossChainControllerActions": {
           "CrossChainControllerForwardMessage": "Forward message"
@@ -3735,6 +3936,10 @@
                 "description1": "This token must be wrapped by its holders to be used in governance.",
                 "description2": "Token holders will be able to wrap their tokens at any time to receive equivalent governance tokens, which can be used to vote on proposals. They can unwrap at any time to receive their original tokens.",
                 "message": "Requires wrapping"
+              },
+              "notGovernanceSupported": {
+                "description1": "Voting power is read from the token's past balances, so the token must support governance (ERC-20 Votes). Tokens that do not support it cannot be wrapped for this plugin.",
+                "message": "This token does not support governance"
               }
             },
             "helpText": "The address must be an ERC-20 token contract deployed on the same chain as your DAO.",

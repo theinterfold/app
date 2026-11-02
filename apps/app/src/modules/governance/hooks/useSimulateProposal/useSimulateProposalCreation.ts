@@ -101,7 +101,17 @@ export const useSimulateProposalCreation = (
             ? error.walk((e) => e instanceof ExecutionRevertedError)
             : undefined;
     const isRequestError = isError && revertError == null;
-    const isSimulationError = isError && revertError != null;
+
+    // The simulation does not run the prerequisite steps (e.g. a fee deposit) of the plugin, so
+    // its revert is not reported as a failure when the plugin has any.
+    const hasPrerequisiteSteps =
+        pluginRegistryUtils.getSlotFunction({
+            slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_PREREQUISITE_STEPS,
+            pluginId: plugin.interfaceType,
+        }) != null;
+
+    const isSimulationError =
+        isError && revertError != null && !hasPrerequisiteSteps;
     const isFailure = !canBuildProposal || isSimulationError;
 
     return {

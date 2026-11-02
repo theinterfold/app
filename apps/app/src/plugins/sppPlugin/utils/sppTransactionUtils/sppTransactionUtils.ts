@@ -9,23 +9,28 @@ import { createProcessFormUtils } from '@/modules/createDao/components/createPro
 import type { ISetupBodyForm } from '@/modules/createDao/dialogs/setupBodyDialog';
 import type { ISetupStageSettingsForm } from '@/modules/createDao/dialogs/setupStageSettingsDialog';
 import { BodyType } from '@/modules/createDao/types/enum';
+import { GovernanceSlotId } from '@/modules/governance/constants/moduleSlots';
 import type { IProposalCreate } from '@/modules/governance/dialogs/publishProposalDialog';
-import type { IBuildCreateProposalDataParams } from '@/modules/governance/types';
+import type {
+    IBuildCreateProposalDataParams,
+    IBuildCreateProposalParamsParams,
+} from '@/modules/governance/types';
 import {
     createProposalUtils,
     type ICreateProposalEndDateForm,
 } from '@/modules/governance/utils/createProposalUtils';
 import type { IGetUninstallHelpersParams } from '@/modules/settings/types';
-import type { IDao } from '@/shared/api/daoService';
+import type { IDao, IDaoPlugin } from '@/shared/api/daoService';
 import { dateUtils } from '@/shared/utils/dateUtils';
 import { permissionTransactionUtils } from '@/shared/utils/permissionTransactionUtils';
+import { pluginRegistryUtils } from '@/shared/utils/pluginRegistryUtils';
 import {
     type IPluginInstallationSetupData,
     pluginTransactionUtils,
 } from '@/shared/utils/pluginTransactionUtils';
 import type { ITransactionRequest } from '@/shared/utils/transactionUtils';
 import { sppPlugin } from '../../constants/sppPlugin';
-import { SppProposalType } from '../../types';
+import { type ISppPluginSettings, SppProposalType } from '../../types';
 import { sppPluginAbi, sppPluginSetupAbi } from './sppPluginAbi';
 
 export interface ICreateSppProposalFormData
@@ -43,13 +48,23 @@ class SppTransactionUtils {
     private anyAddress: Hex = '0xffffffffffffffffffffffffffffffffffffffff';
 
     buildCreateProposalData = (
-        params: IBuildCreateProposalDataParams<ICreateSppProposalFormData>,
+        params: IBuildCreateProposalDataParams<
+            ICreateSppProposalFormData,
+            ISppPluginSettings
+        >,
     ): Hex => {
-        const { metadata, actions, proposal } = params;
+        const { metadata, actions, proposal, plugin } = params;
 
         const startDate = createProposalUtils.parseStartDate(proposal);
+        const proposalParams = this.buildProposalParams(plugin, proposal);
 
-        const functionArgs = [metadata, actions, BigInt(0), startDate, [[]]];
+        const functionArgs = [
+            metadata,
+            actions,
+            BigInt(0),
+            startDate,
+            proposalParams,
+        ];
         const data = encodeFunctionData({
             abi: sppPluginAbi,
             functionName: 'createProposal',
@@ -57,6 +72,42 @@ class SppTransactionUtils {
         });
 
         return data;
+    };
+
+    // Builds the [stage][body] matrix of custom proposal parameters forwarded to the bodies' own
+    // createProposal. Bodies without a registered slot function get empty bytes, and trailing
+    // empty entries are dropped.
+    private buildProposalParams = (
+        plugin: IDaoPlugin<ISppPluginSettings>,
+        proposal: IProposalCreate,
+    ): Hex[][] => {
+        const stagesParams = plugin.settings.stages.map((stage) => {
+            const bodiesParams = stage.plugins.map((body): Hex => {
+                if (body.interfaceType == null) {
+                    return '0x';
+                }
+
+                const buildParams = pluginRegistryUtils.getSlotFunction<
+                    IBuildCreateProposalParamsParams,
+                    Hex
+                >({
+                    slotId: GovernanceSlotId.GOVERNANCE_BUILD_CREATE_PROPOSAL_PARAMS,
+                    pluginId: body.interfaceType,
+                });
+
+                return buildParams?.({ body, proposal }) ?? '0x';
+            });
+
+            return bodiesParams.slice(
+                0,
+                bodiesParams.findLastIndex((params) => params !== '0x') + 1,
+            );
+        });
+
+        const stagesCount =
+            stagesParams.findLastIndex((params) => params.length > 0) + 1;
+
+        return stagesCount > 0 ? stagesParams.slice(0, stagesCount) : [[]];
     };
 
     buildPreparePluginInstallData = (metadataCid: string, dao: IDao) => {
@@ -229,9 +280,10 @@ class SppTransactionUtils {
         const newConditionAddresses = bodies
             .filter((body) => body.type === BodyType.NEW)
             .reduce<string[]>((current, body, index) => {
-                const conditionAddress =
+                // Bodies whose setup returns no helpers have no creation condition to add.
+                const conditionAddress: string | undefined =
                     pluginSetupData[index].preparedSetupData.helpers[0];
-                return body.canCreateProposal
+                return body.canCreateProposal && conditionAddress != null
                     ? [...current, conditionAddress]
                     : current;
             }, []);

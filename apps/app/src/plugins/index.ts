@@ -2,6 +2,8 @@ import { initialiseAdminPlugin } from './adminPlugin';
 import { adminPluginDialogsDefinitions } from './adminPlugin/constants/adminPluginDialogsDefinitions';
 import { initialiseCapitalDistributorPlugin } from './capitalDistributorPlugin';
 import { capitalDistributorPluginDialogsDefinitions } from './capitalDistributorPlugin/constants/capitalDistributorPluginDialogsDefinitions';
+import { initialiseCrispPlugin } from './crispPlugin';
+import { crispPluginDialogsDefinitions } from './crispPlugin/constants/crispPluginDialogsDefinitions';
 import { initialiseCrossChainControllerPlugin } from './crossChainControllerPlugin';
 import { initialiseGaugeVoterPlugin } from './gaugeVoterPlugin';
 import { gaugeVoterPluginDialogsDefinitions } from './gaugeVoterPlugin/constants/gaugeVoterPluginDialogsDefinitions';
@@ -25,11 +27,13 @@ export const initialisePlugins = () => {
     initialiseSafeMultisigPlugin();
     initialiseGaugeVoterPlugin();
     initialiseCrossChainControllerPlugin();
+    initialiseCrispPlugin();
 };
 
 export const pluginDialogsDefinitions = {
     ...adminPluginDialogsDefinitions,
     ...capitalDistributorPluginDialogsDefinitions,
+    ...crispPluginDialogsDefinitions,
     ...lockToVotePluginDialogsDefinitions,
     ...multisigPluginDialogsDefinitions,
     ...sppPluginDialogsDefinitions,

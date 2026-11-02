@@ -1,0 +1,18 @@
+/**
+ * Why an Interfold (E3) round failed, mirroring `IInterfold.FailureReason`.
+ */
+export enum CrispE3FailureReason {
+    NONE = 0,
+    COMMITTEE_FORMATION_TIMEOUT = 1,
+    INSUFFICIENT_COMMITTEE_MEMBERS = 2,
+    DKG_TIMEOUT = 3,
+    DKG_INVALID_SHARES = 4,
+    NO_INPUTS_RECEIVED = 5,
+    COMPUTE_TIMEOUT = 6,
+    COMPUTE_PROVIDER_EXPIRED = 7,
+    COMPUTE_PROVIDER_FAILED = 8,
+    REQUESTER_CANCELLED = 9,
+    DECRYPTION_TIMEOUT = 10,
+    DECRYPTION_INVALID_SHARES = 11,
+    VERIFICATION_FAILED = 12,
+}

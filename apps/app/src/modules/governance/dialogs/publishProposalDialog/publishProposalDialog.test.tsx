@@ -25,6 +25,7 @@ import {
     generateReactQueryResultLoading,
     generateReactQueryResultSuccess,
 } from '@/shared/testUtils';
+import { pluginRegistryUtils } from '@/shared/utils/pluginRegistryUtils';
 import { testLogger, timeUtils } from '@/test/utils';
 import * as governanceService from '../../api/governanceService';
 import { generateProposal, generateProposalCreate } from '../../testUtils';
@@ -57,6 +58,10 @@ describe('<PublishProposalDialog /> component', () => {
         publishProposalDialogUtils,
         'buildTransaction',
     );
+    const getSlotFunctionSpy = jest.spyOn(
+        pluginRegistryUtils,
+        'getSlotFunction',
+    );
 
     beforeEach(() => {
         useConnectionSpy.mockReturnValue({
@@ -67,6 +72,7 @@ describe('<PublishProposalDialog /> component', () => {
         );
         useDaoPluginsSpy.mockReturnValue([generateFilterComponentPlugin()]);
         usePinJsonSpy.mockReturnValue(generateReactQueryMutationResultIdle());
+        getSlotFunctionSpy.mockReturnValue(undefined);
         buildTransactionSpy.mockReturnValue({
             to: '0x123',
             data: '0x123',
@@ -207,6 +213,46 @@ describe('<PublishProposalDialog /> component', () => {
             { body: parsedMetadata },
             { onError: errorHandler },
         );
+    });
+
+    it('appends the steps of the prerequisite-steps slot after the pin-metadata step', () => {
+        const prerequisiteStep = {
+            id: 'DEPOSIT_FEE',
+            order: 0,
+            meta: {
+                label: 'deposit-label',
+                errorLabel: 'deposit-error',
+                state: 'idle' as const,
+                action: jest.fn(),
+            },
+        };
+        const prerequisites = { steps: [prerequisiteStep], isResolved: true };
+        getSlotFunctionSpy.mockReturnValue(() => prerequisites);
+
+        render(createTestComponent({ location: generateDialogLocation() }));
+
+        const { customSteps } = (
+            TransactionDialog as jest.Mock<ReactNode, ITransactionDialogProps[]>
+        ).mock.calls.at(-1)![0];
+
+        expect(customSteps?.map((step) => step.id)).toEqual([
+            'PIN_METADATA',
+            'DEPOSIT_FEE',
+        ]);
+        expect(customSteps![1].order).toEqual(1);
+    });
+
+    it('does not start pinning the metadata until the prerequisite steps are resolved', () => {
+        const prerequisites = { steps: [], isResolved: false };
+        getSlotFunctionSpy.mockReturnValue(() => prerequisites);
+
+        render(createTestComponent({ location: generateDialogLocation() }));
+
+        const { customSteps } = (
+            TransactionDialog as jest.Mock<ReactNode, ITransactionDialogProps[]>
+        ).mock.calls.at(-1)![0];
+
+        expect(customSteps![0].meta.auto).toBe(false);
     });
 
     it('prepares the transaction using the buildTransaction functionality and the hash of the pinned data', async () => {
