@@ -1,0 +1,5 @@
+export enum CrispPluginDialogId {
+    SUBMIT_VOTE = 'CRISP_SUBMIT_VOTE',
+    REFUND = 'CRISP_REFUND',
+    WITHDRAW_CREDIT = 'CRISP_WITHDRAW_CREDIT',
+}

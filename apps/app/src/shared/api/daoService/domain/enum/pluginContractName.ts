@@ -13,4 +13,5 @@ export enum PluginContractName {
     CAPITAL_DISTRIBUTOR = 'Capital distributor',
     LOCK_TO_VOTE = 'Lock to vote',
     CROSS_CHAIN_CONTROLLER = 'Cross-chain controller',
+    CRISP_VOTING = 'CRISP voting',
 }

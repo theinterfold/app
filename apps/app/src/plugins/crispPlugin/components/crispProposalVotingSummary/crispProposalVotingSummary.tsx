@@ -1,0 +1,88 @@
+'use client';
+
+import { useTranslations } from '@/shared/components/translationsProvider';
+import { useCrispProposal } from '../../hooks/useCrispProposal';
+import type { ICrispProposal } from '../../types';
+import { crispProposalUtils } from '../../utils/crispProposalUtils';
+
+export interface ICrispProposalVotingSummaryProps {
+    /**
+     * Proposal to be used to display the summary.
+     */
+    proposal?: ICrispProposal;
+    /**
+     * Name of the plugin.
+     */
+    name: string;
+    /**
+     * Defines if the voting is to veto or not.
+     */
+    isVeto: boolean;
+    /**
+     * Additional executed status when plugin is a sub-plugin.
+     */
+    isExecuted?: boolean;
+}
+
+export const CrispProposalVotingSummary: React.FC<
+    ICrispProposalVotingSummaryProps
+> = (props) => {
+    const { proposal: proposalEnvelope, name, isVeto, isExecuted } = props;
+
+    const { t } = useTranslations();
+
+    // The tally is not part of the indexed proposal, so the outcome shown for the body is
+    // resolved on-chain.
+    const { proposal } = useCrispProposal({ proposal: proposalEnvelope });
+
+    if (!proposal) {
+        return (
+            <p className="font-normal text-base text-neutral-800 leading-tight md:text-lg">
+                {name}
+            </p>
+        );
+    }
+
+    const isTallyResolved = crispProposalUtils.isTallyResolved(proposal);
+
+    // Ballots are encrypted while the proposal is active, and until the committee has published
+    // the tally after it closed: no support values can be shown, and "not approved" would be a
+    // guess.
+    if (!isTallyResolved && !isExecuted) {
+        return (
+            <p className="font-normal text-base text-neutral-800 leading-tight md:text-lg">
+                {name}{' '}
+                <span className="text-neutral-500">
+                    {t(
+                        `app.plugins.crisp.crispProposalVotingSummary.${proposal.failureReason != null ? 'failed' : 'encrypted'}`,
+                    )}
+                </span>
+            </p>
+        );
+    }
+
+    const isApprovalReached =
+        isExecuted === true || crispProposalUtils.hasSucceeded(proposal);
+
+    const approvalText = isApprovalReached ? 'approved' : 'notApproved';
+    const vetoText = isApprovalReached ? 'vetoed' : 'notVetoed';
+    const statusText = isVeto ? vetoText : approvalText;
+
+    const statusClass =
+        isApprovalReached && isVeto
+            ? 'text-critical-800'
+            : isApprovalReached
+              ? 'text-success-800'
+              : 'text-neutral-500';
+
+    return (
+        <p className="font-normal text-base text-neutral-800 leading-tight md:text-lg">
+            {name}{' '}
+            <span className={statusClass}>
+                {t(
+                    `app.plugins.crisp.crispProposalVotingSummary.${statusText}`,
+                )}
+            </span>
+        </p>
+    );
+};

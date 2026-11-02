@@ -1,0 +1,1 @@
+export { CrispMinVoterVotingPowerField } from './crispMinVoterVotingPowerField';

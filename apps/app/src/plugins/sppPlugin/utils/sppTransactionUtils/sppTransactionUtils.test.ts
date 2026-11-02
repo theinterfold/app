@@ -23,10 +23,15 @@ import { Network, PluginInterfaceType } from '@/shared/api/daoService';
 import { generateDao, generateDaoPlugin } from '@/shared/testUtils';
 import { generatePluginInstallationSetupData } from '@/shared/testUtils/generators/pluginSetupData';
 import { permissionTransactionUtils } from '@/shared/utils/permissionTransactionUtils';
+import { pluginRegistryUtils } from '@/shared/utils/pluginRegistryUtils';
 import { pluginTransactionUtils } from '@/shared/utils/pluginTransactionUtils';
 import type { ITransactionRequest } from '@/shared/utils/transactionUtils';
-import { generateSppPluginSettings } from '../../testUtils';
-import { SppProposalType } from '../../types';
+import {
+    generateSppPluginSettings,
+    generateSppStage,
+    generateSppStagePlugin,
+} from '../../testUtils';
+import { type ISppStagePlugin, SppProposalType } from '../../types';
 import { sppPluginAbi, sppPluginSetupAbi } from './sppPluginAbi';
 import { sppTransactionUtils } from './sppTransactionUtils';
 
@@ -94,6 +99,77 @@ describe('sppTransaction utils', () => {
                     startDate,
                     [[]],
                 ],
+            });
+        });
+
+        describe('body proposal parameters', () => {
+            const getSlotFunctionSpy = jest.spyOn(
+                pluginRegistryUtils,
+                'getSlotFunction',
+            );
+            const contributingBody = generateSppStagePlugin({
+                interfaceType: PluginInterfaceType.CRISP,
+            });
+            const otherBody = generateSppStagePlugin({
+                interfaceType: PluginInterfaceType.MULTISIG,
+            });
+            const externalBody = {
+                ...generateSppStagePlugin(),
+                interfaceType: undefined,
+            } as ISppStagePlugin;
+
+            const buildProposalParams = (bodies: ISppStagePlugin[][]) => {
+                const stages = bodies.map((plugins, stageIndex) =>
+                    generateSppStage({ stageIndex, plugins }),
+                );
+                const plugin = generateDaoPlugin({
+                    settings: generateSppPluginSettings({ stages }),
+                });
+                encodeFunctionDataSpy.mockReturnValue('0x');
+
+                sppTransactionUtils.buildCreateProposalData({
+                    metadata: '0x',
+                    actions: [],
+                    proposal: {
+                        ...generateProposalCreate(),
+                        ...generateCreateProposalEndDateFormData(),
+                    },
+                    plugin,
+                });
+
+                return encodeFunctionDataSpy.mock.calls[0][0].args?.[4];
+            };
+
+            beforeEach(() => {
+                getSlotFunctionSpy.mockImplementation(({ pluginId }) =>
+                    pluginId === PluginInterfaceType.CRISP
+                        ? () => '0xparams'
+                        : undefined,
+                );
+            });
+
+            afterAll(() => {
+                getSlotFunctionSpy.mockRestore();
+            });
+
+            it('sends the parameters of the contributing bodies at their stage and body position', () => {
+                const params = buildProposalParams([
+                    [otherBody, contributingBody],
+                    [otherBody],
+                    [contributingBody, otherBody, externalBody],
+                    [otherBody],
+                ]);
+
+                expect(params).toEqual([['0x', '0xparams'], [], ['0xparams']]);
+            });
+
+            it('sends an empty matrix when no body contributes parameters', () => {
+                const params = buildProposalParams([
+                    [otherBody, externalBody],
+                    [otherBody],
+                ]);
+
+                expect(params).toEqual([[]]);
             });
         });
     });
@@ -540,6 +616,51 @@ describe('sppTransaction utils', () => {
             );
 
             expect(result).toBeDefined();
+        });
+
+        it('skips the new bodies whose setup returns no helpers', () => {
+            const bodyWithoutHelpers = generateSetupBodyFormNew({
+                canCreateProposal: true,
+            });
+            const bodyWithHelpers = generateSetupBodyFormNew({
+                canCreateProposal: true,
+            });
+            const stage = generateCreateProcessFormStage({
+                bodies: [bodyWithoutHelpers, bodyWithHelpers],
+            });
+            const values = generateCreateProcessFormDataAdvanced({
+                stages: [stage],
+                proposalCreationMode: ProposalCreationMode.LISTED_BODIES,
+            });
+            const sppSetupData = generatePluginInstallationSetupData({
+                preparedSetupData: {
+                    helpers: ['0xSppRuleCondition'],
+                    permissions: [],
+                },
+            });
+            const pluginSetupData = [
+                generatePluginInstallationSetupData({
+                    preparedSetupData: { helpers: [], permissions: [] },
+                }),
+                generatePluginInstallationSetupData({
+                    preparedSetupData: {
+                        helpers: ['0xNewCondition'],
+                        permissions: [],
+                    },
+                }),
+            ];
+
+            sppTransactionUtils['buildUpdateRulesTransaction'](
+                values,
+                sppSetupData,
+                pluginSetupData,
+                [],
+            );
+
+            expect(buildRuleConditionsSpy).toHaveBeenCalledWith(
+                ['0xNewCondition'],
+                [],
+            );
         });
 
         it('handles mix of existing and new bodies with different canCreateProposal settings', () => {
