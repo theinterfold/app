@@ -1,5 +1,5 @@
 import { invariant } from '@aragon/gov-ui-kit';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { TransactionReceipt } from 'viem';
 import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
 import { GovernanceDialogId } from '@/modules/governance/constants/governanceDialogId';
@@ -69,8 +69,8 @@ export const PrepareProcessDialog: React.FC<IPrepareProcessDialogProps> = (
     const { status, mutateAsync: pinJson } = usePinJson();
     const { open } = useDialogContext();
 
-    const [processMetadata, setProcessMetadata] =
-        useState<IPrepareProcessMetadata>();
+    // A ref, not state: the transaction dialog keeps the success callback of its first render
+    const processMetadataRef = useRef<IPrepareProcessMetadata>(undefined);
 
     const { data: dao } = useDao({ urlParams: { id: daoId } });
     const [plugin] =
@@ -92,6 +92,7 @@ export const PrepareProcessDialog: React.FC<IPrepareProcessDialogProps> = (
     const { nextStep } = stepper;
 
     const handlePrepareTransaction = async () => {
+        const processMetadata = processMetadataRef.current;
         invariant(
             processMetadata != null,
             'PrepareProcessDialog: metadata not pinned',
@@ -135,7 +136,7 @@ export const PrepareProcessDialog: React.FC<IPrepareProcessDialogProps> = (
                 metadata.processor = processorMetadataHash;
             }
 
-            setProcessMetadata(metadata);
+            processMetadataRef.current = metadata;
             nextStep();
         },
         [pinJson, nextStep, values],
@@ -144,7 +145,12 @@ export const PrepareProcessDialog: React.FC<IPrepareProcessDialogProps> = (
     const handlePrepareInstallationSuccess = (
         txReceipt: TransactionReceipt,
     ) => {
+        const processMetadata = processMetadataRef.current;
         invariant(dao != null, 'PrepareProcessDialog: DAO cannot be fetched');
+        invariant(
+            processMetadata != null,
+            'PrepareProcessDialog: metadata not pinned',
+        );
 
         const executeConditionAddress =
             prepareProcessDialogUtils.getExecuteSelectorConditionAddress(
@@ -159,6 +165,7 @@ export const PrepareProcessDialog: React.FC<IPrepareProcessDialogProps> = (
             values,
             dao,
             setupData,
+            pluginsMetadata: processMetadata.plugins,
             executeConditionAddress,
             safeConditionAddresses,
         };

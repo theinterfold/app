@@ -423,6 +423,15 @@ describe('prepareProcessDialog utils', () => {
             pluginTransactionUtils,
             'buildApplyPluginsInstallationActions',
         );
+        const buildPluginsSetupActionsSpy = jest.spyOn(
+            sppTransactionUtils,
+            'buildPluginsSetupActions',
+        );
+
+        afterEach(() => {
+            buildApplyPluginsInstallationActionsSpy.mockReset();
+            buildPluginsSetupActionsSpy.mockReset();
+        });
 
         const createTestParams = (
             params?: Partial<IBuildProcessProposalActionsParams>,
@@ -430,6 +439,7 @@ describe('prepareProcessDialog utils', () => {
             values: generateCreateProcessFormData(),
             dao: generateDao(),
             setupData: [generatePluginInstallationSetupData()],
+            pluginsMetadata: [],
             ...params,
         });
 
@@ -454,6 +464,64 @@ describe('prepareProcessDialog utils', () => {
                 buildApplyPluginsInstallationActionsSpy,
             ).toHaveBeenCalledWith({ dao, setupData, actions: [] });
             expect(result).toEqual(installPluginActions);
+        });
+
+        it('appends the actions each new body needs once installed, with its own address and metadata', () => {
+            const crispBody = generateSetupBodyFormNew({
+                internalId: 'crisp-body',
+                plugin: 'crisp',
+            });
+            const tokenBody = generateSetupBodyFormNew({
+                internalId: 'token-body',
+                plugin: 'token',
+            });
+            const values = generateCreateProcessFormDataAdvanced({
+                stages: [
+                    generateCreateProcessFormStage({
+                        bodies: [crispBody, generateSetupBodyFormExternal()],
+                    }),
+                    generateCreateProcessFormStage({ bodies: [tokenBody] }),
+                ],
+            });
+            // Processor first, then the new bodies in installation order.
+            const setupData = (['0x5a', '0xc1', '0x70'] as const).map(
+                (pluginAddress) =>
+                    generatePluginInstallationSetupData({ pluginAddress }),
+            );
+            const processorActions = [
+                { to: '0x5a' as Hex, data: '0x01' as Hex, value: BigInt(0) },
+            ];
+            const buildInstalledActions = jest.fn(
+                ({ pluginAddress, metadata }) => [
+                    { to: pluginAddress, data: metadata, value: BigInt(0) },
+                ],
+            );
+            buildPluginsSetupActionsSpy.mockReturnValue(processorActions);
+            getSlotFunctionSpy.mockImplementation(({ pluginId }) =>
+                pluginId === 'crisp' ? buildInstalledActions : undefined,
+            );
+            stringToMetadataHexSpy.mockImplementation(
+                (cid) => `0x${cid}` as Hex,
+            );
+
+            prepareProcessDialogUtils.buildPublishProcessProposalActions(
+                createTestParams({
+                    values,
+                    setupData,
+                    pluginsMetadata: ['c0', '70'],
+                }),
+            );
+
+            expect(
+                buildApplyPluginsInstallationActionsSpy,
+            ).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    actions: [
+                        ...processorActions,
+                        { to: '0xc1', data: '0xc0', value: BigInt(0) },
+                    ],
+                }),
+            );
         });
     });
 });
