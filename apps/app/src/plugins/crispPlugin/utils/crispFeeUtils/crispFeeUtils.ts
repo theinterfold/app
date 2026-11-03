@@ -1,3 +1,4 @@
+import { decodeErrorResult, type Hex, parseAbi } from 'viem';
 import { createProposalUtils } from '@/modules/governance/utils/createProposalUtils';
 import type { ICreateCrispProposalFormData } from '../crispTransactionUtils';
 
@@ -41,6 +42,12 @@ export type ICrispQuoteCall =
           args: readonly [bigint, bigint];
       };
 
+// A staged process wraps the revert of its body, so the reason of the wrapper is decoded in turn
+const insufficientCreditRevertAbi = parseAbi([
+    'error InsufficientFeeCredit(address payer, uint256 required, uint256 available)',
+    'error SubProposalCreationFailed(address plugin, bytes reason)',
+]);
+
 /**
  * The creator of a CRISP proposal pays the fee of the E3 computation from a credit held on the
  * plugin, which must cover the quote before the proposal can be created.
@@ -64,6 +71,24 @@ class CrispFeeUtils {
     // Unknown values count as insufficient: a retry is cheaper than a reverted transaction
     hasSufficientCredit = (quote?: bigint, credit?: bigint): boolean =>
         quote != null && credit != null && credit >= quote;
+
+    // Whether creating a proposal reverted because the creator lacks fee credit, which the prerequisite steps top up
+    isInsufficientCreditRevert = (revertData: Hex): boolean => {
+        try {
+            const { errorName, args } = decodeErrorResult({
+                abi: insufficientCreditRevertAbi,
+                data: revertData,
+            });
+
+            return (
+                errorName === 'InsufficientFeeCredit' ||
+                this.isInsufficientCreditRevert(args[1])
+            );
+        } catch {
+            // Any other revert, which a deposit does not resolve
+            return false;
+        }
+    };
 
     /**
      * Dates a direct proposal is created with. The quote and the transaction must use the same
