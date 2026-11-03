@@ -1,8 +1,7 @@
 'use client';
 
 import { EmptyState } from '@aragon/gov-ui-kit';
-import type { Hex } from 'viem';
-import { formatUnits } from 'viem';
+import { formatUnits, type Hex } from 'viem';
 import { useDialogContext } from '@/shared/components/dialogProvider';
 import { useTranslations } from '@/shared/components/translationsProvider';
 import { CrispPluginDialogId } from '../../constants/crispPluginDialogId';

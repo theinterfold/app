@@ -6,81 +6,30 @@ export const crispE3StageFailed = 6;
 export const crispInterfoldAbi = [
     {
         type: 'function',
-        inputs: [{ name: 'e3Id', internalType: 'uint256', type: 'uint256' }],
+        inputs: [{ name: 'e3Id', type: 'uint256' }],
         name: 'getE3',
+        // The plugin reads `e3Program`, `inputWindow`, `committeePublicKey` and `paramSet`, but the
+        // whole struct has to be declared for the response to decode.
         outputs: [
             {
                 name: 'e3',
-                internalType: 'struct E3',
                 type: 'tuple',
                 components: [
-                    { name: 'seed', internalType: 'uint256', type: 'uint256' },
-                    {
-                        name: 'committeeSize',
-                        internalType: 'enum IInterfold.CommitteeSize',
-                        type: 'uint8',
-                    },
-                    {
-                        name: 'requestBlock',
-                        internalType: 'uint256',
-                        type: 'uint256',
-                    },
-                    {
-                        name: 'inputWindow',
-                        internalType: 'uint256[2]',
-                        type: 'uint256[2]',
-                    },
-                    {
-                        name: 'encryptionSchemeId',
-                        internalType: 'bytes32',
-                        type: 'bytes32',
-                    },
-                    {
-                        name: 'e3Program',
-                        internalType: 'contract IE3Program',
-                        type: 'address',
-                    },
-                    { name: 'paramSet', internalType: 'uint8', type: 'uint8' },
-                    {
-                        name: 'customParams',
-                        internalType: 'bytes',
-                        type: 'bytes',
-                    },
-                    {
-                        name: 'decryptionVerifier',
-                        internalType: 'contract IDecryptionVerifier',
-                        type: 'address',
-                    },
-                    {
-                        name: 'pkVerifier',
-                        internalType: 'contract IPkVerifier',
-                        type: 'address',
-                    },
-                    {
-                        name: 'committeePublicKey',
-                        internalType: 'bytes32',
-                        type: 'bytes32',
-                    },
-                    {
-                        name: 'ciphertextOutput',
-                        internalType: 'bytes32',
-                        type: 'bytes32',
-                    },
-                    {
-                        name: 'plaintextOutput',
-                        internalType: 'bytes',
-                        type: 'bytes',
-                    },
-                    {
-                        name: 'requester',
-                        internalType: 'address',
-                        type: 'address',
-                    },
-                    {
-                        name: 'ciphertextCommitment',
-                        internalType: 'bytes32',
-                        type: 'bytes32',
-                    },
+                    { name: 'seed', type: 'uint256' },
+                    { name: 'committeeSize', type: 'uint8' },
+                    { name: 'requestBlock', type: 'uint256' },
+                    { name: 'inputWindow', type: 'uint256[2]' },
+                    { name: 'encryptionSchemeId', type: 'bytes32' },
+                    { name: 'e3Program', type: 'address' },
+                    { name: 'paramSet', type: 'uint8' },
+                    { name: 'customParams', type: 'bytes' },
+                    { name: 'decryptionVerifier', type: 'address' },
+                    { name: 'pkVerifier', type: 'address' },
+                    { name: 'committeePublicKey', type: 'bytes32' },
+                    { name: 'ciphertextOutput', type: 'bytes32' },
+                    { name: 'plaintextOutput', type: 'bytes' },
+                    { name: 'requester', type: 'address' },
+                    { name: 'ciphertextCommitment', type: 'bytes32' },
                 ],
             },
         ],
@@ -88,9 +37,9 @@ export const crispInterfoldAbi = [
     },
     {
         type: 'function',
-        inputs: [{ name: '', internalType: 'uint8', type: 'uint8' }],
+        inputs: [{ name: '', type: 'uint8' }],
         name: 'paramSetRegistry',
-        outputs: [{ name: '', internalType: 'bytes', type: 'bytes' }],
+        outputs: [{ name: '', type: 'bytes' }],
         stateMutability: 'view',
     },
     {

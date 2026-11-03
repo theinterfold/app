@@ -16,7 +16,7 @@ proposal still renders, with an "encrypted" tally, when those sources are unreac
 | `settings.minParticipation`                 | X      | `getProposal().parameters`, a percentage                                           |
 | `settings.supportThreshold`                 | X      | `getProposal().parameters`, a percentage                                           |
 | `settings.minVoterVotingPower`              | X      | `getProposal().parameters.minVotingPower`                                          |
-| `settings.minProposerVotingPower`, `minDuration` | X | `minProposerVotingPower()`, `minDuration()`                                        |
+| `settings.minProposerVotingPower`, `minDuration` | B | proposal settings, not re-read on-chain                                       |
 | `settings.token`                            | B      | proposal, with `decimals` read on-chain                                            |
 | `settings.historicalTotalSupply`            | X      | `totalVotingPower(snapshot)`, the quorum denominator                               |
 | `isTallyPublished`, `metrics.votesByOption` | X      | `getTally(proposalId)` (reverts until published) or the stored tally once executed |

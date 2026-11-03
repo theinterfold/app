@@ -11,8 +11,6 @@ import {
     size,
 } from 'viem';
 
-export type CrispPreparedBallot = PreparedBallot;
-
 /**
  * BFV parameters of a round as published on-chain in `Interfold.paramSetRegistry`.
  */
@@ -73,7 +71,7 @@ export interface IFinishBallotParams {
     /**
      * Output of `prepareBallot`.
      */
-    prepared: CrispPreparedBallot;
+    prepared: PreparedBallot;
     /**
      * Ballot digest read from `CRISPProgram.ballotDigest`.
      */
@@ -267,7 +265,7 @@ class CrispSdkUtils {
      */
     prepareBallot = async (
         params: IPrepareBallotParams,
-    ): Promise<CrispPreparedBallot> => {
+    ): Promise<PreparedBallot> => {
         const {
             serverUrl,
             e3Id,

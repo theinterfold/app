@@ -5,6 +5,7 @@ import {
     ChainEntityType,
     Dialog,
     InputContainer,
+    invariant,
     Switch,
     Toggle,
     ToggleGroup,
@@ -54,7 +55,12 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
     props,
 ) => {
     const { location } = props;
-    const { proposal: proposalParam, voteOption } = location.params!;
+    invariant(
+        location.params != null,
+        'CrispSubmitVoteDialog: required parameters must be set.',
+    );
+
+    const { proposal: proposalParam, voteOption } = location.params;
 
     const { t } = useTranslations();
     const { close } = useDialogContext();

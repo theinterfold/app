@@ -8,9 +8,9 @@ import {
 } from '@aragon/gov-ui-kit';
 import type { ReactNode } from 'react';
 import { formatUnits } from 'viem';
+import { VoteOption } from '@/plugins/tokenPlugin/types';
 import { useTranslations } from '@/shared/components/translationsProvider';
 import { bigIntUtils } from '@/shared/utils/bigIntUtils';
-import { VoteOption } from '../../../tokenPlugin/types';
 import { useCrispProposal } from '../../hooks/useCrispProposal';
 import type { ICrispProposal } from '../../types';
 import { crispProposalUtils } from '../../utils/crispProposalUtils';

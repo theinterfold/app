@@ -56,9 +56,15 @@ export const CrispRefundDialog: React.FC<ICrispRefundDialogProps> = (props) => {
         'CrispRefundDialog: required parameters must be set.',
     );
 
-    const { network, pluginAddress, proposalId, e3Id, interfold, step } =
-        location.params;
-    const { onSuccess } = location.params;
+    const {
+        network,
+        pluginAddress,
+        proposalId,
+        e3Id,
+        interfold,
+        step,
+        onSuccess,
+    } = location.params;
 
     const { t } = useTranslations();
 
