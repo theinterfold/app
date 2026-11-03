@@ -5,6 +5,8 @@ import {
     ProposalStatus,
 } from '@aragon/gov-ui-kit';
 import { useCallback, useMemo, useState } from 'react';
+import { estimateGas } from 'wagmi/actions';
+import { wagmiConfig } from '@/modules/application/constants/wagmi';
 import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
 import { useIndexedProposalStatus } from '@/modules/governance/hooks/useIndexedProposalStatus';
 import { PluginInterfaceType, useDao } from '@/shared/api/daoService';
@@ -18,7 +20,7 @@ import {
     TransactionDialog,
 } from '@/shared/components/transactionDialog';
 import { useTranslations } from '@/shared/components/translationsProvider';
-import { useDaoPlugins } from '@/shared/hooks/useDaoPlugins';
+import { networkDefinitions } from '@/shared/constants/networkDefinitions';
 import { useStepper } from '@/shared/hooks/useStepper';
 import { daoUtils } from '@/shared/utils/daoUtils';
 import { pluginRegistryUtils } from '@/shared/utils/pluginRegistryUtils';
@@ -86,35 +88,59 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
         mutate: pinJson,
     } = usePinJson({ onSuccess: stepper.nextStep });
 
-    const subPlugins = useDaoPlugins({
-        daoId,
-        includeSubPlugins: true,
-        includeLinkedAccounts: true,
-    });
-
     // Publishing to a staged process creates a proposal on each of its bodies, so the
-    // prerequisites of the bodies apply as well.
-    const prerequisitePlugins = useMemo(() => {
-        const bodies = (subPlugins ?? [])
-            .map((item) => item.meta)
-            .filter((body) =>
+    // prerequisites and gas needs of the bodies apply as well. Derived from the cached DAO so the
+    // list keeps its identity across renders: the transaction dialog re-applies its steps on
+    // every new list.
+    const proposalPlugins = useMemo(() => {
+        const bodies = daoUtils
+            .getDaoPlugins(dao, {
+                includeSubPlugins: true,
+                includeLinkedAccounts: true,
+            })
+            ?.filter((body) =>
                 addressUtils.isAddressEqual(body.parentPlugin, plugin.address),
             );
 
-        return [plugin, ...bodies].flatMap((item) => {
-            const usePrerequisiteSteps = pluginRegistryUtils.getSlotFunction<
-                ICreateProposalPrerequisiteStepsParams,
-                ICreateProposalPrerequisiteStepsResult
-            >({
-                slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_PREREQUISITE_STEPS,
-                pluginId: item.interfaceType,
-            });
+        return [plugin, ...(bodies ?? [])];
+    }, [dao, plugin]);
 
-            return usePrerequisiteSteps
-                ? [{ plugin: item, usePrerequisiteSteps }]
-                : [];
-        });
-    }, [subPlugins, plugin]);
+    const prerequisitePlugins = useMemo(
+        () =>
+            proposalPlugins.flatMap((item) => {
+                const usePrerequisiteSteps =
+                    pluginRegistryUtils.getSlotFunction<
+                        ICreateProposalPrerequisiteStepsParams,
+                        ICreateProposalPrerequisiteStepsResult
+                    >({
+                        slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_PREREQUISITE_STEPS,
+                        pluginId: item.interfaceType,
+                    });
+
+                return usePrerequisiteSteps
+                    ? [{ plugin: item, usePrerequisiteSteps }]
+                    : [];
+            }),
+        [proposalPlugins],
+    );
+
+    // Extra gas, in percent of the estimate, that the creation needs. A staged process swallows a
+    // body that fails to create its proposal, so the estimate can settle on a limit where a costly
+    // body runs out of gas and the proposal is created without it.
+    const gasHeadroom = useMemo(
+        () =>
+            Math.max(
+                0,
+                ...proposalPlugins.map(
+                    (item) =>
+                        pluginRegistryUtils.getSlotFunction<undefined, number>({
+                            slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_GAS_HEADROOM,
+                            pluginId: item.interfaceType,
+                        })?.(undefined) ?? 0,
+                ),
+            ),
+        [proposalPlugins],
+    );
 
     const [prerequisites, setPrerequisites] = useState<
         Record<string, ICreateProposalPrerequisiteStepsResult>
@@ -179,11 +205,30 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
             });
         const processedProposal = { ...proposal, actions: processedActions };
 
-        return publishProposalDialogUtils.buildTransaction({
+        const transaction = await publishProposalDialogUtils.buildTransaction({
             proposal: processedProposal,
             metadataCid,
             plugin,
         });
+
+        if (gasHeadroom === 0) {
+            return transaction;
+        }
+
+        invariant(
+            dao != null,
+            'PublishProposalDialog: DAO must be loaded to estimate the transaction.',
+        );
+        const estimate = await estimateGas(wagmiConfig, {
+            ...transaction,
+            account: address,
+            chainId: networkDefinitions[dao.network].id,
+        });
+
+        return {
+            ...transaction,
+            gas: (estimate * BigInt(100 + gasHeadroom)) / BigInt(100),
+        };
     };
 
     // Handler function to disable the navigation block when the transaction is needed.

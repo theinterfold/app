@@ -113,6 +113,14 @@ export const initialiseCrispPlugin = () => {
             pluginId: crispPlugin.id,
             function: () => true,
         })
+        // Requesting the round's E3 needs ~3% more gas than the creation's estimate. The estimate
+        // settles on a limit where a staged process swallows the body's out-of-gas and creates the
+        // proposal without its round, so the creation is sent with explicit headroom
+        .registerSlotFunction({
+            slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_GAS_HEADROOM,
+            pluginId: crispPlugin.id,
+            function: () => 25,
+        })
         .registerSlotFunction({
             slotId: GovernanceSlotId.GOVERNANCE_PLUGIN_ACTIONS,
             pluginId: crispPlugin.id,

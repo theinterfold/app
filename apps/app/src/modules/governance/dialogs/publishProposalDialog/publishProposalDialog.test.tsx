@@ -6,6 +6,7 @@ import {
 import { render, screen } from '@testing-library/react';
 import { act, type ReactNode } from 'react';
 import * as Wagmi from 'wagmi';
+import * as wagmiActions from 'wagmi/actions';
 import * as DaoService from '@/shared/api/daoService';
 import * as usePinJson from '@/shared/api/ipfsService/mutations';
 import type { IDialogLocation } from '@/shared/components/dialogProvider';
@@ -14,18 +15,18 @@ import {
     type ITransactionDialogStep,
     TransactionDialog,
 } from '@/shared/components/transactionDialog';
-import * as useDaoPlugins from '@/shared/hooks/useDaoPlugins';
+import { networkDefinitions } from '@/shared/constants/networkDefinitions';
 import * as useSlotSingleFunction from '@/shared/hooks/useSlotSingleFunction';
 import {
     generateDao,
     generateDaoPlugin,
-    generateFilterComponentPlugin,
     generateReactQueryMutationResultIdle,
     generateReactQueryMutationResultSuccess,
     generateReactQueryResultLoading,
     generateReactQueryResultSuccess,
 } from '@/shared/testUtils';
 import { pluginRegistryUtils } from '@/shared/utils/pluginRegistryUtils';
+import type { ITransactionRequest } from '@/shared/utils/transactionUtils';
 import { testLogger, timeUtils } from '@/test/utils';
 import * as governanceService from '../../api/governanceService';
 import { GovernanceSlotId } from '../../constants/moduleSlots';
@@ -50,7 +51,6 @@ jest.mock('@/shared/components/transactionDialog', () => ({
 describe('<PublishProposalDialog /> component', () => {
     const useConnectionSpy = jest.spyOn(Wagmi, 'useConnection');
     const useDaoSpy = jest.spyOn(DaoService, 'useDao');
-    const useDaoPluginsSpy = jest.spyOn(useDaoPlugins, 'useDaoPlugins');
     const usePinJsonSpy = jest.spyOn(usePinJson, 'usePinJson');
     const prepareMetadataSpy = jest.spyOn(
         publishProposalDialogUtils,
@@ -72,7 +72,6 @@ describe('<PublishProposalDialog /> component', () => {
         useDaoSpy.mockReturnValue(
             generateReactQueryResultSuccess({ data: generateDao() }),
         );
-        useDaoPluginsSpy.mockReturnValue([generateFilterComponentPlugin()]);
         usePinJsonSpy.mockReturnValue(generateReactQueryMutationResultIdle());
         getSlotFunctionSpy.mockReturnValue(undefined);
         buildTransactionSpy.mockReturnValue({
@@ -84,7 +83,6 @@ describe('<PublishProposalDialog /> component', () => {
 
     afterEach(() => {
         useConnectionSpy.mockReset();
-        useDaoPluginsSpy.mockReset();
         usePinJsonSpy.mockReset();
         prepareMetadataSpy.mockReset();
         useDaoSpy.mockReset();
@@ -288,10 +286,12 @@ describe('<PublishProposalDialog /> component', () => {
             interfaceType: DaoService.PluginInterfaceType.LOCK_TO_VOTE,
             parentPlugin: '0x00000000000000000000000000000000000000d1',
         });
-        useDaoPluginsSpy.mockReturnValue(
-            [body, otherProcessBody].map((meta) =>
-                generateFilterComponentPlugin({ meta }),
-            ),
+        useDaoSpy.mockReturnValue(
+            generateReactQueryResultSuccess({
+                data: generateDao({
+                    plugins: [process, body, otherProcessBody],
+                }),
+            }),
         );
         getSlotFunctionSpy.mockImplementation(({ slotId, pluginId }) =>
             slotId ===
@@ -323,14 +323,23 @@ describe('<PublishProposalDialog /> component', () => {
         ]);
     });
 
+    it('keeps its steps stable across renders so the transaction dialog does not re-apply them', () => {
+        const location = generateDialogLocation();
+        const { rerender } = render(createTestComponent({ location }));
+        rerender(createTestComponent({ location }));
+
+        const [first, second] = (
+            TransactionDialog as jest.Mock<ReactNode, ITransactionDialogProps[]>
+        ).mock.calls.slice(-2);
+
+        expect(second[0].customSteps).toBe(first[0].customSteps);
+    });
+
     it('prepares the transaction using the buildTransaction functionality and the hash of the pinned data', async () => {
         timeUtils.setTime('2025-04-16T09:30:00');
         const daoPlugin = generateDaoPlugin();
         const ipfsResult = { IpfsHash: 'test' };
         const proposal = generateProposalCreate();
-        useDaoPluginsSpy.mockReturnValue([
-            generateFilterComponentPlugin({ meta: daoPlugin }),
-        ]);
         usePinJsonSpy.mockReturnValue(
             generateReactQueryMutationResultSuccess({ data: ipfsResult }),
         );
@@ -351,12 +360,80 @@ describe('<PublishProposalDialog /> component', () => {
             plugin: daoPlugin,
         });
     });
+
+    describe('gas limit of the creation', () => {
+        const estimateGasSpy = jest.spyOn(wagmiActions, 'estimateGas');
+        const transaction = {
+            to: '0x123' as const,
+            data: '0x123' as const,
+            value: BigInt(0),
+        };
+
+        afterEach(() => {
+            estimateGasSpy.mockReset();
+        });
+
+        const prepare = async () => {
+            usePinJsonSpy.mockReturnValue(
+                generateReactQueryMutationResultSuccess({
+                    data: { IpfsHash: 'test' },
+                }),
+            );
+            render(createTestComponent({ location: generateDialogLocation() }));
+            const { prepareTransaction } = (
+                TransactionDialog as jest.Mock<
+                    ReactNode,
+                    ITransactionDialogProps<PublishProposalStep>[]
+                >
+            ).mock.calls[0][0];
+
+            let prepared: ITransactionRequest | undefined;
+            await act(async () => {
+                prepared = await prepareTransaction();
+            });
+            return prepared;
+        };
+
+        it('adds the headroom a plugin of the process requires to the estimate', async () => {
+            const network = DaoService.Network.ETHEREUM_SEPOLIA;
+            useDaoSpy.mockReturnValue(
+                generateReactQueryResultSuccess({
+                    data: generateDao({ network }),
+                }),
+            );
+            estimateGasSpy.mockResolvedValue(BigInt(1_000_000));
+            getSlotFunctionSpy.mockImplementation(({ slotId }) =>
+                slotId ===
+                GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_GAS_HEADROOM
+                    ? () => 25
+                    : undefined,
+            );
+
+            const prepared = await prepare();
+
+            expect(estimateGasSpy.mock.calls[0][1]).toEqual({
+                ...transaction,
+                account: '0x123',
+                chainId: networkDefinitions[network].id,
+            });
+            expect(prepared).toEqual({
+                ...transaction,
+                gas: BigInt(1_250_000),
+            });
+        });
+
+        it('leaves the gas limit to the wallet when no plugin requires headroom', async () => {
+            const prepared = await prepare();
+
+            expect(estimateGasSpy).not.toHaveBeenCalled();
+            expect(prepared).toEqual(transaction);
+        });
+    });
 });
 
 describe('<PublishProposalDialog /> proposal card status after indexing', () => {
     const useConnectionSpy = jest.spyOn(Wagmi, 'useConnection');
     const useDaoSpy = jest.spyOn(DaoService, 'useDao');
-    const useDaoPluginsSpy = jest.spyOn(useDaoPlugins, 'useDaoPlugins');
     const usePinJsonSpy = jest.spyOn(usePinJson, 'usePinJson');
     const buildTransactionSpy = jest.spyOn(
         publishProposalDialogUtils,
@@ -378,7 +455,6 @@ describe('<PublishProposalDialog /> proposal card status after indexing', () => 
         useDaoSpy.mockReturnValue(
             generateReactQueryResultSuccess({ data: generateDao() }),
         );
-        useDaoPluginsSpy.mockReturnValue([generateFilterComponentPlugin()]);
         usePinJsonSpy.mockReturnValue(generateReactQueryMutationResultIdle());
         buildTransactionSpy.mockReturnValue({
             to: '0x123',
@@ -398,7 +474,6 @@ describe('<PublishProposalDialog /> proposal card status after indexing', () => 
 
     afterEach(() => {
         useConnectionSpy.mockReset();
-        useDaoPluginsSpy.mockReset();
         usePinJsonSpy.mockReset();
         buildTransactionSpy.mockReset();
         useDaoSpy.mockReset();
