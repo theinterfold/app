@@ -1,5 +1,9 @@
 import { encodeAbiParameters, encodeFunctionData, type Hex } from 'viem';
-import type { IBuildPreparePluginInstallDataParams } from '@/modules/createDao/types';
+import type {
+    IBuildInstalledPluginActionsParams,
+    IBuildPreparePluginInstallDataParams,
+} from '@/modules/createDao/types';
+import { setMetadataAbi } from '@/modules/governance/constants/setMetadataAbi';
 import type { IProposalCreate } from '@/modules/governance/dialogs/publishProposalDialog';
 import type { IBuildCreateProposalDataParams } from '@/modules/governance/types';
 import type { ICreateProposalEndDateForm } from '@/modules/governance/utils/createProposalUtils';
@@ -10,6 +14,7 @@ import type {
 import { bigIntUtils } from '@/shared/utils/bigIntUtils';
 import { dateUtils } from '@/shared/utils/dateUtils';
 import { pluginTransactionUtils } from '@/shared/utils/pluginTransactionUtils';
+import type { ITransactionRequest } from '@/shared/utils/transactionUtils';
 import type { ICrispSetupGovernanceForm } from '../../components/crispSetupGovernance';
 import { crispE3Config } from '../../constants/crispE3Config';
 import { crispPlugin } from '../../constants/crispPlugin';
@@ -61,6 +66,21 @@ class CrispTransactionUtils {
         });
 
         return data;
+    };
+
+    // The setup takes no metadata: it grants the DAO the permission to set it, so the proposal applying the
+    // installation names the body.
+    buildInstalledPluginActions = (
+        params: IBuildInstalledPluginActionsParams,
+    ): ITransactionRequest[] => {
+        const { pluginAddress, metadata } = params;
+        const data = encodeFunctionData({
+            abi: [setMetadataAbi],
+            functionName: 'setMetadata',
+            args: [metadata],
+        });
+
+        return [{ to: pluginAddress, value: BigInt(0), data }];
     };
 
     // The `_data` of `createProposal` is the allow-failure map (zero requires every action to

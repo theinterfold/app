@@ -2,6 +2,7 @@ export type {
     IBuildCreateDaoPluginSettingsParams,
     ICreateDaoPluginSettings,
 } from './buildCreateDaoPluginSettingsParams';
+export type { IBuildInstalledPluginActionsParams } from './buildInstalledPluginActionsParams';
 export type { IBuildPreparePluginInstallDataParams } from './buildPreparePluginInstallDataParams';
 export type { ICreateProcessPageParams } from './createProcessPageParams';
 export type { IPluginProposalCreationSettingsParams } from './pluginProposalCreationSettingsParams';
