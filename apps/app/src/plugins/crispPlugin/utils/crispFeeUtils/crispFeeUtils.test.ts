@@ -1,3 +1,4 @@
+import { encodeErrorResult, parseAbi } from 'viem';
 import type { ICreateCrispProposalFormData } from '../crispTransactionUtils';
 import { crispFeeUtils } from './crispFeeUtils';
 
@@ -81,6 +82,49 @@ describe('crispFeeUtils', () => {
                 ).toBeFalsy();
             },
         );
+    });
+
+    describe('isInsufficientCreditRevert', () => {
+        const revertAbi = parseAbi([
+            'error InsufficientFeeCredit(address payer, uint256 required, uint256 available)',
+            'error SubProposalCreationFailed(address plugin, bytes reason)',
+            'error Unauthorized()',
+        ]);
+        const plugin = '0x811012d319a88c2809ce4b82e2f0dadbb2da26a4';
+        const insufficientCredit = encodeErrorResult({
+            abi: revertAbi,
+            errorName: 'InsufficientFeeCredit',
+            args: [plugin, BigInt(19_149_428), BigInt(0)],
+        });
+        const unauthorized = encodeErrorResult({
+            abi: revertAbi,
+            errorName: 'Unauthorized',
+        });
+        const wrap = (reason: `0x${string}`) =>
+            encodeErrorResult({
+                abi: revertAbi,
+                errorName: 'SubProposalCreationFailed',
+                args: [plugin, reason],
+            });
+
+        it('is true when the creator lacks credit on a CRISP plugin, directly or as a staged-process body', () => {
+            expect(
+                crispFeeUtils.isInsufficientCreditRevert(insufficientCredit),
+            ).toBeTruthy();
+            expect(
+                crispFeeUtils.isInsufficientCreditRevert(
+                    wrap(insufficientCredit),
+                ),
+            ).toBeTruthy();
+        });
+
+        it.each([
+            { name: 'another error', data: unauthorized },
+            { name: 'another error of a body', data: wrap(unauthorized) },
+            { name: 'an empty revert', data: '0x' as const },
+        ])('is false for $name', ({ data }) => {
+            expect(crispFeeUtils.isInsufficientCreditRevert(data)).toBeFalsy();
+        });
     });
 });
 

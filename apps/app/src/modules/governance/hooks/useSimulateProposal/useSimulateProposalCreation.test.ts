@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react';
-import { BaseError, ExecutionRevertedError } from 'viem';
+import { BaseError, ExecutionRevertedError, RawContractError } from 'viem';
 import * as wagmi from 'wagmi';
 import * as useWalletAccountModule from '@/modules/application/hooks/useWalletAccount';
 import { Network } from '@/shared/api/daoService';
@@ -14,6 +14,10 @@ describe('useSimulateProposalCreation hook', () => {
     const getSlotFunctionSpy = jest.spyOn(
         pluginRegistryUtils,
         'getSlotFunction',
+    );
+    const getSlotFunctionsSpy = jest.spyOn(
+        pluginRegistryUtils,
+        'getSlotFunctions',
     );
     const useWalletAccountSpy = jest.spyOn(
         useWalletAccountModule,
@@ -54,6 +58,7 @@ describe('useSimulateProposalCreation hook', () => {
                 ? jest.fn()
                 : undefined,
         );
+        getSlotFunctionsSpy.mockReturnValue([]);
         useCallSpy.mockReturnValue(buildResult({}));
     });
 
@@ -62,6 +67,7 @@ describe('useSimulateProposalCreation hook', () => {
         useWalletAccountSpy.mockReset();
         buildTransactionSpy.mockReset();
         getSlotFunctionSpy.mockReset();
+        getSlotFunctionsSpy.mockReset();
     });
 
     const renderSimulation = () =>
@@ -91,20 +97,38 @@ describe('useSimulateProposalCreation hook', () => {
         expect(result.current.isError).toBeFalsy();
     });
 
-    it('does not report failure when the plugin has prerequisite steps the simulation cannot satisfy', () => {
-        getSlotFunctionSpy.mockReturnValue(() => ({
-            steps: [],
-            isResolved: true,
-        }));
+    it('returns result success when the call reverts with an error the prerequisite steps of a plugin resolve', () => {
+        const isResolved = jest.fn((data: unknown) => data === '0x10ea6bb8');
+        getSlotFunctionsSpy.mockReturnValue([jest.fn(() => false), isResolved]);
         const error = new BaseError('reverted', {
-            cause: new ExecutionRevertedError({}),
+            cause: new ExecutionRevertedError({
+                cause: new RawContractError({ data: '0x10ea6bb8' }),
+            }),
         });
         useCallSpy.mockReturnValue(buildResult({ isError: true, error }));
 
         const { result } = renderSimulation();
 
-        expect(result.current.result).toBeUndefined();
+        expect(getSlotFunctionsSpy).toHaveBeenCalledWith(
+            GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_PREREQUISITE_REVERT,
+        );
+        expect(isResolved).toHaveBeenCalledWith('0x10ea6bb8');
+        expect(result.current.result).toBe('success');
         expect(result.current.isError).toBeFalsy();
+    });
+
+    it('returns result failure when the call reverts with an error no prerequisite steps resolve', () => {
+        getSlotFunctionsSpy.mockReturnValue([jest.fn(() => false)]);
+        const error = new BaseError('reverted', {
+            cause: new ExecutionRevertedError({
+                cause: new RawContractError({ data: '0x12345678' }),
+            }),
+        });
+        useCallSpy.mockReturnValue(buildResult({ isError: true, error }));
+
+        const { result } = renderSimulation();
+
+        expect(result.current.result).toBe('failure');
     });
 
     it('returns result failure without a request error when the call reverts', () => {

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { BaseError, ExecutionRevertedError } from 'viem';
+import { BaseError, ExecutionRevertedError, type Hex } from 'viem';
 import { useCall } from 'wagmi';
 import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
 import type { IDaoPlugin, Network } from '@/shared/api/daoService';
@@ -102,21 +102,34 @@ export const useSimulateProposalCreation = (
             : undefined;
     const isRequestError = isError && revertError == null;
 
-    // The simulation does not run the prerequisite steps (e.g. a fee deposit) of the plugin, so
-    // its revert is not reported as a failure when the plugin has any.
-    const hasPrerequisiteSteps =
-        pluginRegistryUtils.getSlotFunction({
-            slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_PREREQUISITE_STEPS,
-            pluginId: plugin.interfaceType,
-        }) != null;
+    // The simulation does not run the prerequisite steps (e.g. a fee deposit) of the process and its bodies, so a
+    // revert they resolve does not make the user ineligible.
+    const isPrerequisiteRevert =
+        revertError != null &&
+        pluginRegistryUtils
+            .getSlotFunctions<Hex, boolean>(
+                GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_PREREQUISITE_REVERT,
+            )
+            .some((isResolved) => isResolved(getRevertData(error)));
 
     const isSimulationError =
-        isError && revertError != null && !hasPrerequisiteSteps;
+        isError && revertError != null && !isPrerequisiteRevert;
     const isFailure = !canBuildProposal || isSimulationError;
+    const isSuccessful = isSuccess || isPrerequisiteRevert;
 
     return {
         isLoading,
         isError: isRequestError,
-        result: isSuccess ? 'success' : isFailure ? 'failure' : undefined,
+        result: isSuccessful ? 'success' : isFailure ? 'failure' : undefined,
     };
+};
+
+// Raw revert data sits on the innermost error of the call, as an object on some RPC errors
+const getRevertData = (error: unknown): Hex => {
+    const { data } =
+        error instanceof BaseError
+            ? (error.walk() as { data?: Hex | { data?: Hex } })
+            : {};
+
+    return (typeof data === 'object' ? data.data : data) ?? '0x';
 };
