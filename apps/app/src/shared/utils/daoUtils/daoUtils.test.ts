@@ -1163,16 +1163,22 @@ describe('dao utils', () => {
             expect(notFoundMock).not.toHaveBeenCalled();
         });
 
-        it('accepts a well-formed address regardless of its casing', async () => {
-            const network = Network.ETHEREUM_MAINNET;
-            const addressOrEns = daoAddress.toLowerCase();
+        it.each([
+            ['lowercase', daoAddress.toLowerCase()],
+            ['mis-cased', daoAddress.replace('bBD', 'Bbd')],
+        ])(
+            'accepts a %s address and returns its checksummed id, like the id of the DAO',
+            async (_, addressOrEns) => {
+                const network = Network.ETHEREUM_MAINNET;
 
-            const result = await daoUtils.resolveDaoId({
-                addressOrEns,
-                network,
-            });
-            expect(result).toEqual(`${network}-${addressOrEns}`);
-        });
+                const result = await daoUtils.resolveDaoId({
+                    addressOrEns,
+                    network,
+                });
+                expect(result).toEqual(`${network}-${daoAddress}`);
+                expect(notFoundMock).not.toHaveBeenCalled();
+            },
+        );
 
         it('returns the daoId when the id is an ENS name by resolving name to address', async () => {
             const addressOrEns = 'my-dao.dao.eth';

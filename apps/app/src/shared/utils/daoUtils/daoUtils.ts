@@ -4,7 +4,7 @@ import { addressUtils } from '@aragon/gov-ui-kit';
 // cannot load.
 import { notFound } from 'next/navigation-server';
 // biome-ignore lint/style/noRestrictedImports: resolveDaoId and isLinkedAccountPlugin run in Server Components, where the `@aragon/gov-ui-kit` alias is a 'use client' shim and `addressUtils.isAddress` is not callable; { strict: false } is passed explicitly below.
-import { isAddress } from 'viem';
+import { getAddress, isAddress } from 'viem';
 import {
     daoService,
     type IDao,
@@ -366,7 +366,9 @@ class DaoUtils {
             return `${network}-${dao.address}`;
         }
 
-        return `${network}-${addressOrEns}`;
+        // Checksummed like the `id` of the DAO returned by the backend: the id keys the cached DAO,
+        // so a lowercase link would otherwise cache the DAO twice and render it from both entries.
+        return `${network}-${getAddress(addressOrEns)}`;
     };
 
     /**
