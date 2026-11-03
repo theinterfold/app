@@ -87,7 +87,7 @@ export interface IFinishBallotParams {
 // Circuit preset of each BFV parameter set the app has circuits for. An unlisted set is refused
 // instead of proved with other circuits, as that proof would fail on-chain.
 const circuitPresets = {
-    INSECURE_THRESHOLD_512: 'insecure-512',
+    INSECURE_THRESHOLD_64: 'insecure-64',
     SECURE_THRESHOLD_8192: 'secure-8192',
 } as const satisfies Record<string, CircuitPreset>;
 
@@ -99,7 +99,7 @@ const circuitLoaders: Record<
     CircuitPreset,
     () => Promise<{ loadCircuits: () => Promise<CircuitBundle> }>
 > = {
-    'insecure-512': () => import('@crisp-e3/sdk/insecure-512'),
+    'insecure-64': () => import('@crisp-e3/sdk/insecure-64'),
     'secure-8192': () => import('@crisp-e3/sdk/secure-8192'),
 };
 

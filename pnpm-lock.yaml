@@ -285,8 +285,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/gov-ui-kit
       '@crisp-e3/sdk':
-        specifier: ^0.26.1
-        version: 0.26.1(typescript@5.9.3)(zod@3.25.76)
+        specifier: ^0.28.1
+        version: 0.28.1(typescript@5.9.3)(zod@3.25.76)
       '@dagrejs/dagre':
         specifier: ^3.1.1
         version: 3.1.1
@@ -294,8 +294,8 @@ importers:
         specifier: ^0.27.20
         version: 0.27.20(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@interfold/wasm':
-        specifier: ^0.19.0
-        version: 0.19.0
+        specifier: 0.20.0-dev.3
+        version: 0.20.0-dev.3
       '@number-flow/react':
         specifier: ^0.6.2
         version: 0.6.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1241,8 +1241,8 @@ packages:
       react:
         optional: true
 
-  '@aztec/bb.js@5.2.0':
-    resolution: {integrity: sha512-XQRbl6TfHg7xXwf4b3cNSggtwsIxl2z2/zV49/Ahxa1Nc1D7x05NY0QL5mYSRdOJlGKZ3TUTH48lDWAwJSVulg==}
+  '@aztec-foundation/bb.js@6.0.0':
+    resolution: {integrity: sha512-w+rlVHbSbb1neDeJGMDSbNZCxuD6TeSrN/1lbnVgqhKcVfqdDXdTt2b6RUToCsk7Q2Dmx4oqU5tfBcFY//LQtg==}
     hasBin: true
 
   '@babel/code-frame@7.29.7':
@@ -2048,11 +2048,11 @@ packages:
     peerDependencies:
       solid-js: ^1.8
 
-  '@crisp-e3/sdk@0.26.1':
-    resolution: {integrity: sha512-B6GAURZI5THJxkOE8D6mzWwWujwgCtUJ1B6+fAYwz3Wh5Ntgu5bL3EByFAs0SYKDRpM4knl5HtQM0IpFxP3r+w==}
+  '@crisp-e3/sdk@0.28.1':
+    resolution: {integrity: sha512-h2MtwmDi/AJ+SXvKvUZFzxq0iEMSvCWH5zilmFFe8VWf1T9iMFc0mkP0eoDQmx6PmDqeuQO7zkvZA/I+UAJbwg==}
 
-  '@crisp-e3/zk-inputs@0.26.1':
-    resolution: {integrity: sha512-RnfWThZJaA1hpC8s0LvATdRYsxOOCdNsRDIr1NWcSzvm2wXJ3Y5vhnkGv+UCEi1by/bUzC1j4TaN6XiWKkBU8Q==}
+  '@crisp-e3/zk-inputs@0.28.1':
+    resolution: {integrity: sha512-CI2qDQSSqhCdTWxnRdOqtamTms0SJ1eqxxrwKuU2e4sn4ySeszcJbZ2d53AQqsjLURfLRyqGUxCUPlH6vDfDzQ==}
 
   '@csstools/color-helpers@5.1.0':
     resolution: {integrity: sha512-S11EXWJyy0Mz5SYvRmY8nJYTFFd1LCNV+7cXyAgQtOOuzb4EsgfqDufL+9esx72/eLhsRdGZwaldu/h+E4t4BA==}
@@ -2727,8 +2727,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@interfold/wasm@0.19.0':
-    resolution: {integrity: sha512-YjU84/KwL4lF1AgPz4gLtmGrBopl7fJ1DNWvEpVfGUfDuTX9LYoPiSSN0dELfFM1bmw5yysM91Bx6pdkLHRXSA==}
+  '@interfold/wasm@0.20.0-dev.3':
+    resolution: {integrity: sha512-Zl4U9PbofgnZ2eVnk5mEPbjSemNW4EegW3AZNWG7tfqbKN9iGRey1dpO98CpVreIwToWgNRv+xNyclAQoVY3Pg==}
 
   '@internationalized/number@3.6.9':
     resolution: {integrity: sha512-GgWy2caO/+hV9sT/oCTWGHvbjmJMPT9kkXzoKRLnkEq7adghhR7UprhvY9sXrKfrp3NcDfhF6QQHXR1KfQbB8g==}
@@ -3175,17 +3175,17 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
-  '@noir-lang/acvm_js@1.0.0-beta.26':
-    resolution: {integrity: sha512-f9+gLTQrOuZYLjHHdULC9J1ItcLs5237W62Y+CzRBI3MVfD/rhe5trdGoUwuIVvW9ttUObQsR4UkhvN5gcxYnA==}
+  '@noir-lang/acvm_js@1.0.0-rc.3':
+    resolution: {integrity: sha512-bTTrcPphNHVrFkbJPVcFrrigwwU/N9+trgEa9PF2X/VWWAX0B1gOGSBwqziOKMwThpU7H2Jb3Z6OFMEhpMKaEQ==}
 
-  '@noir-lang/noir_js@1.0.0-beta.26':
-    resolution: {integrity: sha512-0p3AyhQ+xQDHhE6eNSj79pWXvcPupmpxTsh7zkxf4dJnv3iB6XgzbrJspn6ed0VtSWGuHpFjRJbRY+PZFMeyMg==}
+  '@noir-lang/noir_js@1.0.0-rc.3':
+    resolution: {integrity: sha512-NrJZPd7zpBWXzP240rP78fr6RE8vg3mFIMIsT5Xiqbh6zdBKfLI8Nb7Ea4UFwFWyRFDqZO3qGd3HbGyRWxxZ8Q==}
 
-  '@noir-lang/noirc_abi@1.0.0-beta.26':
-    resolution: {integrity: sha512-w/KjhJx095dAKECPlLb7QY6FovZ8dJboCXzgcZ9k0yZfhawhN4/8SEcC7JCer+GKxKZEBSY3VtlZmW3ch4J83A==}
+  '@noir-lang/noirc_abi@1.0.0-rc.3':
+    resolution: {integrity: sha512-jax7q2CAAG4jxCzr8MllH/LZxnxnS5PF1YyzmFJ7DTf97k3+LaHSnBPXE8TwQYDsWwyNxQTqDWw1QVEoO1ESaQ==}
 
-  '@noir-lang/types@1.0.0-beta.26':
-    resolution: {integrity: sha512-TFJMafp32koXf3TFVAfPBirwkVdlRHzSTM1nVAkRJDTQQNnI7qoAjvzXWXjgpE65kwjukQyzcmaucOegruawPw==}
+  '@noir-lang/types@1.0.0-rc.3':
+    resolution: {integrity: sha512-k1UHd67/OSPJb9E6WNKeMtuoDbflLpu803jtbaVqDlr2P/rH8+joDuIxK+nwBMVlnCO2LlcJaN4wpQ/TRHJ78w==}
 
   '@number-flow/react@0.6.2':
     resolution: {integrity: sha512-WjZuV4aA+vhRCgCF+adGLgFVVAJ8vdvq6EchRT2FiBIgElTXtDOA3YgkcMr9UHpvpS9v4H70AB5wZv0D9jc3QA==}
@@ -11119,6 +11119,9 @@ packages:
   prop-types@15.8.1:
     resolution: {integrity: sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg==}
 
+  proper-lockfile@4.1.2:
+    resolution: {integrity: sha512-TjNPblN4BwAWMXU8s9AEz4JmQxnD1NNL7bNOY/AKUzyamc379FWASUhc/K1pL2noVb+XmZKLL68cjzLsiOAMaA==}
+
   property-information@7.2.0:
     resolution: {integrity: sha512-IAtzIB6sUiWaJYrX9smp3V46pBGbBeLFRGdh25kg1334VcBlD8HzhPeNIWQH9zhGmo2itIe25EHt9dQP7G5hmg==}
 
@@ -11522,6 +11525,10 @@ packages:
   restore-cursor@5.1.0:
     resolution: {integrity: sha512-oMA2dcrw6u0YfxJQXm342bFKX/E4sG9rbTzO9ptUcR/e8A33cHuvStiYOwH7fszkZlZ1z/ta9AAoPk2F4qIOHA==}
     engines: {node: '>=18'}
+
+  retry@0.12.0:
+    resolution: {integrity: sha512-9LkiTwjUh6rT555DtE9rTX+BKByPfrMzEAtnlEtdEwr3Nkffwiihqe2bWADg+OQRjt9gl6ICdmB/ZFDCGAtSow==}
+    engines: {node: '>= 4'}
 
   retry@0.13.1:
     resolution: {integrity: sha512-XQBQ3I8W1Cge0Seh+6gjj03LbmRFWuoszgK9ooCpwYIrhhoO80pfq4cUkU5DkknwfOfFteRwlZ56PYOGYyFWdg==}
@@ -13407,13 +13414,14 @@ snapshots:
       '@types/react': 19.3.0
       react: 19.3.1
 
-  '@aztec/bb.js@5.2.0':
+  '@aztec-foundation/bb.js@6.0.0':
     dependencies:
       comlink: 4.4.2
       commander: 12.1.0
       idb-keyval: 6.3.0
       msgpackr: 1.12.1
       pako: 2.2.0
+      proper-lockfile: 4.1.2
       tslib: 2.8.1
 
   '@babel/code-frame@7.29.7':
@@ -14496,11 +14504,11 @@ snapshots:
       '@floating-ui/dom': 1.8.0
       solid-js: 1.9.17
 
-  '@crisp-e3/sdk@0.26.1(typescript@5.9.3)(zod@3.25.76)':
+  '@crisp-e3/sdk@0.28.1(typescript@5.9.3)(zod@3.25.76)':
     dependencies:
-      '@aztec/bb.js': 5.2.0
-      '@crisp-e3/zk-inputs': 0.26.1
-      '@noir-lang/noir_js': 1.0.0-beta.26
+      '@aztec-foundation/bb.js': 6.0.0
+      '@crisp-e3/zk-inputs': 0.28.1
+      '@noir-lang/noir_js': 1.0.0-rc.3
       '@zk-kit/lean-imt': 2.2.5
       poseidon-lite: 0.3.0
       viem: 2.30.6(typescript@5.9.3)(zod@3.25.76)
@@ -14510,7 +14518,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@crisp-e3/zk-inputs@0.26.1': {}
+  '@crisp-e3/zk-inputs@0.28.1': {}
 
   '@csstools/color-helpers@5.1.0': {}
 
@@ -15241,7 +15249,7 @@ snapshots:
   '@img/sharp-win32-x64@0.35.5':
     optional: true
 
-  '@interfold/wasm@0.19.0': {}
+  '@interfold/wasm@0.20.0-dev.3': {}
 
   '@internationalized/number@3.6.9':
     dependencies:
@@ -15788,20 +15796,20 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.3
 
-  '@noir-lang/acvm_js@1.0.0-beta.26': {}
+  '@noir-lang/acvm_js@1.0.0-rc.3': {}
 
-  '@noir-lang/noir_js@1.0.0-beta.26':
+  '@noir-lang/noir_js@1.0.0-rc.3':
     dependencies:
-      '@noir-lang/acvm_js': 1.0.0-beta.26
-      '@noir-lang/noirc_abi': 1.0.0-beta.26
-      '@noir-lang/types': 1.0.0-beta.26
+      '@noir-lang/acvm_js': 1.0.0-rc.3
+      '@noir-lang/noirc_abi': 1.0.0-rc.3
+      '@noir-lang/types': 1.0.0-rc.3
       pako: 3.0.2
 
-  '@noir-lang/noirc_abi@1.0.0-beta.26':
+  '@noir-lang/noirc_abi@1.0.0-rc.3':
     dependencies:
-      '@noir-lang/types': 1.0.0-beta.26
+      '@noir-lang/types': 1.0.0-rc.3
 
-  '@noir-lang/types@1.0.0-beta.26': {}
+  '@noir-lang/types@1.0.0-rc.3': {}
 
   '@number-flow/react@0.6.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
@@ -25400,6 +25408,12 @@ snapshots:
       object-assign: 4.1.1
       react-is: 16.13.1
 
+  proper-lockfile@4.1.2:
+    dependencies:
+      graceful-fs: 4.2.11
+      retry: 0.12.0
+      signal-exit: 3.0.7
+
   property-information@7.2.0: {}
 
   prosemirror-changeset@2.4.4:
@@ -25962,6 +25976,8 @@ snapshots:
     dependencies:
       onetime: 7.0.0
       signal-exit: 4.1.0
+
+  retry@0.12.0: {}
 
   retry@0.13.1: {}
 
