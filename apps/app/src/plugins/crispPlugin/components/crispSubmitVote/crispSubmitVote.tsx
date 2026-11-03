@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Card } from '@aragon/gov-ui-kit';
+import { Button, Card, ProposalStatus } from '@aragon/gov-ui-kit';
 import { useEffect, useState } from 'react';
 import { GovernanceSlotId } from '@/modules/governance/constants/moduleSlots';
 import { usePermissionCheckGuard } from '@/modules/governance/hooks/usePermissionCheckGuard';
@@ -13,6 +13,7 @@ import { useDaoPlugins } from '@/shared/hooks/useDaoPlugins';
 import { CrispPluginDialogId } from '../../constants/crispPluginDialogId';
 import type { ICrispSubmitVoteDialogParams } from '../../dialogs/crispSubmitVoteDialog';
 import type { ICrispPlugin, ICrispProposal } from '../../types';
+import { crispProposalUtils } from '../../utils/crispProposalUtils';
 
 export interface ICrispSubmitVoteProps
     extends ISubmitVoteProps<ICrispProposal> {}
@@ -63,6 +64,14 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
             setShowOptions(false);
         }
     }, [canSubmitVote]);
+
+    // An SPP stage keeps this action mounted after its own window, as the CRISP result lands
+    // later; ballots are only accepted within the round's window
+    if (
+        crispProposalUtils.getProposalStatus(proposal) !== ProposalStatus.ACTIVE
+    ) {
+        return null;
+    }
 
     return (
         <div className="flex flex-col gap-4">
