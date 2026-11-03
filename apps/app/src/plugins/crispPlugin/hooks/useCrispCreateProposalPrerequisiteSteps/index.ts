@@ -1,4 +1,1 @@
-export {
-    CrispCreateProposalStep,
-    useCrispCreateProposalPrerequisiteSteps,
-} from './useCrispCreateProposalPrerequisiteSteps';
+export { useCrispCreateProposalPrerequisiteSteps } from './useCrispCreateProposalPrerequisiteSteps';

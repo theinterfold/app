@@ -24,7 +24,6 @@ import { useTranslations } from '@/shared/components/translationsProvider';
 import { useDaoChain } from '@/shared/hooks/useDaoChain';
 import { useDaoPluginInfo } from '@/shared/hooks/useDaoPluginInfo';
 import { useTokenTotalSupply } from '@/shared/hooks/useTokenTotalSupply';
-import { bigIntUtils } from '@/shared/utils/bigIntUtils';
 import { daoUtils } from '@/shared/utils/daoUtils';
 import { dateUtils } from '@/shared/utils/dateUtils';
 import type { ICrispSetupGovernanceForm } from '../crispSetupGovernance';
@@ -91,14 +90,13 @@ export const CrispProcessBodyField = (props: ICrispProcessBodyFieldProps) => {
 
     const { minParticipation, minDuration } = governance;
 
-    const parsedTotalSupply =
-        totalSupply != null
-            ? formatUnits(bigIntUtils.safeParse(totalSupply), tokenDecimals)
-            : undefined;
-    const formattedSupply = formatterUtils.formatNumber(parsedTotalSupply, {
-        format: NumberFormat.TOKEN_AMOUNT_LONG,
-        fallback: '0',
-    });
+    const formattedSupply =
+        totalSupply != null && totalSupply > BigInt(0)
+            ? `${formatterUtils.formatNumber(
+                  formatUnits(totalSupply, tokenDecimals),
+                  { format: NumberFormat.TOKEN_AMOUNT_LONG },
+              )} ($${tokenSymbol})`
+            : '-';
 
     const proposalDurationObject = dateUtils.secondsToDuration(minDuration);
     const formattedMinDuration = t(
@@ -155,7 +153,7 @@ export const CrispProcessBodyField = (props: ICrispProcessBodyFieldProps) => {
             >
                 {tokenName} (${tokenSymbol})
             </DefinitionList.Item>
-            {numberOfMembers! > 0 && (
+            {(numberOfMembers ?? 0) > 0 && (
                 <DefinitionList.Item
                     link={
                         isExisting
@@ -177,9 +175,7 @@ export const CrispProcessBodyField = (props: ICrispProcessBodyFieldProps) => {
             <DefinitionList.Item
                 term={t('app.plugins.crisp.crispProcessBodyField.supplyTerm')}
             >
-                {totalSupply != null && Number(totalSupply) > 0
-                    ? `${formattedSupply} ($${tokenSymbol})`
-                    : '-'}
+                {formattedSupply}
             </DefinitionList.Item>
             <DefinitionList.Item
                 term={t(

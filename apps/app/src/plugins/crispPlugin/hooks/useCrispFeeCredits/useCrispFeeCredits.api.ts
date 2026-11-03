@@ -2,10 +2,10 @@ import type { Network } from '@/shared/api/daoService';
 import type { ICrispQuoteCall } from '../../utils/crispFeeUtils';
 
 /**
- * Why a deposit did not happen, besides the user rejecting a signature.
+ * Why a deposit did not happen.
  * - `unavailable`: the quote, the credit or the fee token could not be read.
  * - `balance`: the wallet does not hold the fee-token amount to deposit.
- * - `transaction`: the approval or the deposit failed.
+ * - `transaction`: the approval or the deposit failed, including a rejected signature.
  */
 export type CrispDepositFailure = 'unavailable' | 'balance' | 'transaction';
 
