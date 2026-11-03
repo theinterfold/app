@@ -106,6 +106,13 @@ export const initialiseCrispPlugin = () => {
             pluginId: crispPlugin.id,
             component: CrispSubmitVote,
         })
+        // The ballot opens once the committee published its key and the tally is decrypted after
+        // it closes, so the result reaches the SPP stage after the stage's own voting window
+        .registerSlotFunction({
+            slotId: GovernanceSlotId.GOVERNANCE_BODY_VOTES_AFTER_WINDOW,
+            pluginId: crispPlugin.id,
+            function: () => true,
+        })
         .registerSlotFunction({
             slotId: GovernanceSlotId.GOVERNANCE_PLUGIN_ACTIONS,
             pluginId: crispPlugin.id,
