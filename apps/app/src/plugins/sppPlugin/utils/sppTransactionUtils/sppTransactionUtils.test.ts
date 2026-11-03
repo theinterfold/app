@@ -108,7 +108,7 @@ describe('sppTransaction utils', () => {
                 'getSlotFunction',
             );
             const contributingBody = generateSppStagePlugin({
-                interfaceType: PluginInterfaceType.CRISP,
+                interfaceType: PluginInterfaceType.LOCK_TO_VOTE,
             });
             const otherBody = generateSppStagePlugin({
                 interfaceType: PluginInterfaceType.MULTISIG,
@@ -142,7 +142,7 @@ describe('sppTransaction utils', () => {
 
             beforeEach(() => {
                 getSlotFunctionSpy.mockImplementation(({ pluginId }) =>
-                    pluginId === PluginInterfaceType.CRISP
+                    pluginId === PluginInterfaceType.LOCK_TO_VOTE
                         ? () => '0xparams'
                         : undefined,
                 );

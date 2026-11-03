@@ -16,7 +16,7 @@ import { crispFeeUtils } from '../../utils/crispFeeUtils';
 import type { ICreateCrispProposalFormData } from '../../utils/crispTransactionUtils';
 import { useCrispFeeCredits } from '../useCrispFeeCredits';
 
-export enum CrispCreateProposalStep {
+enum CrispCreateProposalStep {
     DEPOSIT_FEE = 'DEPOSIT_FEE',
 }
 

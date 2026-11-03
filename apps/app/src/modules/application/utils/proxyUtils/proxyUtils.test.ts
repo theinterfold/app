@@ -43,6 +43,15 @@ describe('proxy utils', () => {
         expect(createFeatureFlagsMock).not.toHaveBeenCalled();
     });
 
+    it('allows data and blob connections, which the wildcard source does not cover', async () => {
+        const request = new NextRequest('https://app.example.org/dao/test');
+        const response = await proxyUtils.proxy(request);
+
+        expect(response.headers.get('Content-Security-Policy')).toContain(
+            'connect-src * data: blob:',
+        );
+    });
+
     it('rewrites help center requests to the site deployment when the flag is on', async () => {
         setHelpCenterFlag(true);
         const request = new NextRequest(

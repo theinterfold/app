@@ -42,8 +42,8 @@ const sepoliaServerUrl =
  */
 export const crispE3Config: Partial<Record<Network, ICrispE3Config>> = {
     [Network.ETHEREUM_SEPOLIA]: {
-        interfoldAddress: '0xBD5B6D1aDA9e0eB248B678469C9Cd6a63507E42b',
-        crispProgramAddress: '0xA9894A39061EC33f8550a2B63A66Be59fb9fa443',
+        interfoldAddress: '0xb35EE9ed8BE5967daabBA8c2e817C52D0b57ac26',
+        crispProgramAddress: '0x25Df8D3C04D67efb6198E215963d19a8d119ADFF',
         committeeSize: 0,
         paramSet: 0,
         // utf8 `{"name":"OpenVM","parallel":false,"batch_size":4}`. Empty bytes are not a safe

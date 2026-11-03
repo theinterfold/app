@@ -35,6 +35,15 @@ export const CrispProposalVotingSummary: React.FC<
     // resolved on-chain.
     const { proposal } = useCrispProposal({ proposal: proposalEnvelope });
 
+    const renderStatus = (statusKey: string, statusClass: string) => (
+        <p className="font-normal text-base text-neutral-800 leading-tight md:text-lg">
+            {name}{' '}
+            <span className={statusClass}>
+                {t(`app.plugins.crisp.crispProposalVotingSummary.${statusKey}`)}
+            </span>
+        </p>
+    );
+
     if (!proposal) {
         return (
             <p className="font-normal text-base text-neutral-800 leading-tight md:text-lg">
@@ -43,21 +52,13 @@ export const CrispProposalVotingSummary: React.FC<
         );
     }
 
-    const isTallyResolved = crispProposalUtils.isTallyResolved(proposal);
-
     // Ballots are encrypted while the proposal is active, and until the committee has published
     // the tally after it closed: no support values can be shown, and "not approved" would be a
     // guess.
-    if (!isTallyResolved && !isExecuted) {
-        return (
-            <p className="font-normal text-base text-neutral-800 leading-tight md:text-lg">
-                {name}{' '}
-                <span className="text-neutral-500">
-                    {t(
-                        `app.plugins.crisp.crispProposalVotingSummary.${proposal.failureReason != null ? 'failed' : 'encrypted'}`,
-                    )}
-                </span>
-            </p>
+    if (!crispProposalUtils.isTallyResolved(proposal) && !isExecuted) {
+        return renderStatus(
+            proposal.failureReason != null ? 'failed' : 'encrypted',
+            'text-neutral-500',
         );
     }
 
@@ -75,14 +76,5 @@ export const CrispProposalVotingSummary: React.FC<
               ? 'text-success-800'
               : 'text-neutral-500';
 
-    return (
-        <p className="font-normal text-base text-neutral-800 leading-tight md:text-lg">
-            {name}{' '}
-            <span className={statusClass}>
-                {t(
-                    `app.plugins.crisp.crispProposalVotingSummary.${statusText}`,
-                )}
-            </span>
-        </p>
-    );
+    return renderStatus(statusText, statusClass);
 };

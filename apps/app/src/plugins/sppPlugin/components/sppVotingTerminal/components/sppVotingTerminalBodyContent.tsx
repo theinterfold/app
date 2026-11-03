@@ -159,8 +159,9 @@ export const SppVotingTerminalBodyContent: React.FC<
         },
     };
 
-    // Set parent name and description on sub-proposal to correctly display the proposal info on the vote dialog.
-    const { title, description, incrementalId } = proposal;
+    // Set parent name, description and creator on sub-proposal to correctly display the proposal info on the
+    // vote and execute dialogs; the indexed sub-proposal carries none of them.
+    const { title, description, incrementalId, creator } = proposal;
     const processedSubProposal =
         subProposal != null
             ? {
@@ -168,6 +169,7 @@ export const SppVotingTerminalBodyContent: React.FC<
                   title,
                   description,
                   incrementalId,
+                  creator,
                   pluginInterfaceType: plugin.interfaceType,
               }
             : undefined;

@@ -113,8 +113,8 @@ const getReader = (network: Network): Promise<ICrispReader> | ICrispReader =>
         : buildClientReader(network);
 
 // A failed secondary read leaves the field undefined, the proposal then renders as unresolved
-const optional = <T>(read?: Promise<T>): Promise<T | undefined> =>
-    read?.catch(() => undefined) ?? Promise.resolve(undefined);
+const optional = <T>(read: Promise<T>): Promise<T | undefined> =>
+    read.catch(() => undefined);
 
 class CrispProposalResolverUtils {
     // Only a failed `getProposal` rejects
@@ -154,7 +154,9 @@ class CrispProposalResolverUtils {
         const { e3Id, parameters } = proposal;
 
         const readInterfold = <T>(call: (interfold: Hex) => Promise<T>) =>
-            interfold != null ? optional(call(interfold)) : optional<T>();
+            interfold != null
+                ? optional(call(interfold))
+                : Promise.resolve(undefined);
 
         const [totalVotingPower, e3, stage, storedReason, condition] =
             await Promise.all([

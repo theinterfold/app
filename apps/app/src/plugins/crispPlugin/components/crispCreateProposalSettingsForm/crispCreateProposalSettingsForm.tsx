@@ -56,22 +56,19 @@ export const CrispCreateProposalSettingsForm: React.FC<
 
     // A half-entered date quotes the default window instead of throwing
     const quoteCalls = useMemo(() => {
-        const fallback = crispFeeUtils.getQuoteCalls({
-            proposal: {} as ICreateCrispProposalFormData,
-            now: 0,
-        });
-
-        if (dateValues == null) {
-            return fallback;
-        }
+        const defaultWindow = {} as ICreateCrispProposalFormData;
 
         try {
             return crispFeeUtils.getQuoteCalls({
-                proposal: dateValues as ICreateCrispProposalFormData,
+                proposal: (dateValues ??
+                    defaultWindow) as ICreateCrispProposalFormData,
                 now: Math.floor(DateTime.now().toSeconds()),
             });
         } catch {
-            return fallback;
+            return crispFeeUtils.getQuoteCalls({
+                proposal: defaultWindow,
+                now: 0,
+            });
         }
     }, [dateValues]);
 

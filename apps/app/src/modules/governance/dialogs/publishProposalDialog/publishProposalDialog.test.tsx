@@ -28,7 +28,9 @@ import {
 import { pluginRegistryUtils } from '@/shared/utils/pluginRegistryUtils';
 import { testLogger, timeUtils } from '@/test/utils';
 import * as governanceService from '../../api/governanceService';
+import { GovernanceSlotId } from '../../constants/moduleSlots';
 import { generateProposal, generateProposalCreate } from '../../testUtils';
+import type { ICreateProposalPrerequisiteStepsParams } from '../../types';
 import {
     PublishProposalDialog,
     type PublishProposalStep,
@@ -253,6 +255,72 @@ describe('<PublishProposalDialog /> component', () => {
         ).mock.calls.at(-1)![0];
 
         expect(customSteps![0].meta.auto).toBe(false);
+    });
+
+    it('collects the prerequisite steps of the bodies of the process the proposal is published to', () => {
+        const stepOf = (id: string) => ({
+            id,
+            order: 0,
+            meta: {
+                label: id,
+                errorLabel: id,
+                state: 'idle' as const,
+                action: jest.fn(),
+            },
+        });
+        const stepsByAddress: Record<string, ITransactionDialogStep[]> = {
+            '0x00000000000000000000000000000000000000b1': [stepOf('BODY_STEP')],
+            '0x00000000000000000000000000000000000000c1': [
+                stepOf('OTHER_STEP'),
+            ],
+        };
+        const process = generateDaoPlugin({
+            address: '0x00000000000000000000000000000000000000a1',
+            interfaceType: DaoService.PluginInterfaceType.SPP,
+        });
+        const body = generateDaoPlugin({
+            address: '0x00000000000000000000000000000000000000b1',
+            interfaceType: DaoService.PluginInterfaceType.LOCK_TO_VOTE,
+            parentPlugin: '0x00000000000000000000000000000000000000a1',
+        });
+        const otherProcessBody = generateDaoPlugin({
+            address: '0x00000000000000000000000000000000000000c1',
+            interfaceType: DaoService.PluginInterfaceType.LOCK_TO_VOTE,
+            parentPlugin: '0x00000000000000000000000000000000000000d1',
+        });
+        useDaoPluginsSpy.mockReturnValue(
+            [body, otherProcessBody].map((meta) =>
+                generateFilterComponentPlugin({ meta }),
+            ),
+        );
+        getSlotFunctionSpy.mockImplementation(({ slotId, pluginId }) =>
+            slotId ===
+                GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_PREREQUISITE_STEPS &&
+            pluginId === DaoService.PluginInterfaceType.LOCK_TO_VOTE
+                ? (params: unknown) => ({
+                      steps: stepsByAddress[
+                          (params as ICreateProposalPrerequisiteStepsParams)
+                              .plugin.address
+                      ],
+                      isResolved: true,
+                  })
+                : undefined,
+        );
+
+        render(
+            createTestComponent({
+                location: generateDialogLocation({ plugin: process }),
+            }),
+        );
+
+        const { customSteps } = (
+            TransactionDialog as jest.Mock<ReactNode, ITransactionDialogProps[]>
+        ).mock.calls.at(-1)![0];
+
+        expect(customSteps?.map((step) => step.id)).toEqual([
+            'PIN_METADATA',
+            'BODY_STEP',
+        ]);
     });
 
     it('prepares the transaction using the buildTransaction functionality and the hash of the pinned data', async () => {
