@@ -125,7 +125,7 @@ describe('useCrispSubmitVote', () => {
             encodedParams: '0x34',
         });
         readDigestSpy.mockResolvedValue('0xdigest');
-        verifyKeySpy.mockResolvedValue('insecure-512');
+        verifyKeySpy.mockResolvedValue('insecure-64');
         prepareBallotSpy.mockResolvedValue({
             ctCommitment: '0xcommitment',
         } as unknown as Awaited<
@@ -189,7 +189,7 @@ describe('useCrispSubmitVote', () => {
                 e3Id: BigInt(e3Id),
                 slotAddress: address,
                 votingPower: BigInt(300),
-                preset: 'insecure-512',
+                preset: 'insecure-64',
             }),
         );
         expect(signTypedDataAsync).toHaveBeenCalledWith(
