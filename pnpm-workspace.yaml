@@ -94,6 +94,11 @@ catalog:
   zod: ^4.6.7
 
 minimumReleaseAge: 10080 # cooldown period for new packages in minutes (7 days)
+# The CRISP plugin's protocol packages ship with each Interfold network release. The app has to
+# match the live network's circuits and parameters, so it cannot wait out the cooldown.
+minimumReleaseAgeExclude:
+  - '@crisp-e3/*'
+  - '@interfold/*'
 strictDepBuilds: true
 blockExoticSubdeps: true
 trustPolicy: no-downgrade

@@ -51,18 +51,25 @@ export const CrispProposalVotingBreakdown: React.FC<
     }
 
     // Encrypted until the committee publishes the tally, and until the divisor that turns its
-    // counts into token units is known.
+    // counts into token units is known. The children hold the vote submission, which is open
+    // exactly while the tally is encrypted.
     if (!crispProposalUtils.isTallyResolved(proposal)) {
         return (
-            <EmptyState
-                description={t(
-                    'app.plugins.crisp.crispProposalVotingBreakdown.encrypted.description',
-                )}
-                heading={t(
-                    'app.plugins.crisp.crispProposalVotingBreakdown.encrypted.heading',
-                )}
-                objectIllustration={{ object: 'TIMELOCK' }}
-            />
+            <Tabs.Content
+                className="flex flex-col gap-4"
+                value={ProposalVotingTab.BREAKDOWN}
+            >
+                <EmptyState
+                    description={t(
+                        'app.plugins.crisp.crispProposalVotingBreakdown.encrypted.description',
+                    )}
+                    heading={t(
+                        'app.plugins.crisp.crispProposalVotingBreakdown.encrypted.heading',
+                    )}
+                    objectIllustration={{ object: 'TIMELOCK' }}
+                />
+                {children}
+            </Tabs.Content>
         );
     }
 
