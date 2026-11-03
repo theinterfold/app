@@ -22,6 +22,7 @@ import { useCrispNormalizeActions } from './hooks/useCrispNormalizeActions';
 import { useCrispPermissionCheckProposalCreation } from './hooks/useCrispPermissionCheckProposalCreation';
 import { useCrispPermissionCheckVoteSubmission } from './hooks/useCrispPermissionCheckVoteSubmission';
 import { crispBodyUtils } from './utils/crispBodyUtils';
+import { crispFeeUtils } from './utils/crispFeeUtils';
 import { crispProposalResolverUtils } from './utils/crispProposalResolverUtils';
 import { crispProposalUtils } from './utils/crispProposalUtils';
 import { crispTransactionUtils } from './utils/crispTransactionUtils';
@@ -98,6 +99,11 @@ export const initialiseCrispPlugin = () => {
             slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_PREREQUISITE_STEPS,
             pluginId: crispPlugin.id,
             function: useCrispCreateProposalPrerequisiteSteps,
+        })
+        .registerSlotFunction({
+            slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_PREREQUISITE_REVERT,
+            pluginId: crispPlugin.id,
+            function: crispFeeUtils.isInsufficientCreditRevert,
         })
         // GOVERNANCE_BUILD_VOTE_DATA is not registered, ballots are encrypted client-side and
         // submitted through the CRISP server
