@@ -165,6 +165,11 @@ export const initialiseCrispPlugin = () => {
             pluginId: crispPlugin.id,
             function: crispTransactionUtils.buildPrepareInstallData,
         })
+        .registerSlotFunction({
+            slotId: CreateDaoSlotId.CREATE_DAO_BUILD_INSTALLED_PLUGIN_ACTIONS,
+            pluginId: crispPlugin.id,
+            function: crispTransactionUtils.buildInstalledPluginActions,
+        })
         .registerSlotComponent({
             slotId: CreateDaoSlotId.CREATE_DAO_PROCESS_BODY_READ_FIELD,
             pluginId: crispPlugin.id,

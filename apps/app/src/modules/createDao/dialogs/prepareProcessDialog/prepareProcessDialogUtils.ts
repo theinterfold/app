@@ -23,9 +23,13 @@ import {
     createProcessFormUtils,
     GovernanceType,
     type ICreateProcessFormData,
+    type ICreateProcessFormDataAdvanced,
     ProcessPermission,
 } from '../../components/createProcessForm';
-import type { IBuildPreparePluginInstallDataParams } from '../../types';
+import type {
+    IBuildInstalledPluginActionsParams,
+    IBuildPreparePluginInstallDataParams,
+} from '../../types';
 import { BodyType } from '../../types/enum';
 import type {
     ISetupBodyFormExternal,
@@ -147,6 +151,7 @@ class PrepareProcessDialogUtils {
             values,
             dao,
             setupData,
+            pluginsMetadata,
             executeConditionAddress,
             safeConditionAddresses = [],
         } = params;
@@ -162,11 +167,37 @@ class PrepareProcessDialogUtils {
               )
             : [];
 
+        // The processor, when set up, is the first plugin installed and the bodies follow in installation order.
+        const bodies = isAdvancedGovernance
+            ? this.getNewStageBodies(values)
+            : [values.body];
+        const bodiesSetupData = isAdvancedGovernance
+            ? setupData.slice(1)
+            : setupData;
+        const installedPluginActions = bodies.flatMap((body, index) => {
+            const buildActions = pluginRegistryUtils.getSlotFunction<
+                IBuildInstalledPluginActionsParams,
+                ITransactionRequest[]
+            >({
+                slotId: CreateDaoSlotId.CREATE_DAO_BUILD_INSTALLED_PLUGIN_ACTIONS,
+                pluginId: body.plugin,
+            });
+
+            return (
+                buildActions?.({
+                    pluginAddress: bodiesSetupData[index].pluginAddress,
+                    metadata: transactionUtils.stringToMetadataHex(
+                        pluginsMetadata[index],
+                    ),
+                }) ?? []
+            );
+        });
+
         const buildActionsParams: IBuildApplyPluginsInstallationActionsParams =
             {
                 dao,
                 setupData,
-                actions: processorSetupActions,
+                actions: [...processorSetupActions, ...installedPluginActions],
                 executeConditionAddress,
             };
         const proposalActions =
@@ -266,11 +297,7 @@ class PrepareProcessDialogUtils {
             ];
         }
 
-        const newStageBodies = values.stages
-            .flatMap((stage, stageIndex) =>
-                stage.bodies.map((body) => ({ ...body, stageIndex })),
-            )
-            .filter((body) => body.type === BodyType.NEW);
+        const newStageBodies = this.getNewStageBodies(values);
 
         const installData = newStageBodies.map((body, index) => {
             const { votingPeriod: stageVotingPeriod } =
@@ -287,6 +314,13 @@ class PrepareProcessDialogUtils {
 
         return installData;
     };
+
+    private getNewStageBodies = (values: ICreateProcessFormDataAdvanced) =>
+        values.stages
+            .flatMap((stage, stageIndex) =>
+                stage.bodies.map((body) => ({ ...body, stageIndex })),
+            )
+            .filter((body) => body.type === BodyType.NEW);
 
     private buildSafeConditionsDeployData = (
         params: IBuildPrepareInstallPluginsActionParams,

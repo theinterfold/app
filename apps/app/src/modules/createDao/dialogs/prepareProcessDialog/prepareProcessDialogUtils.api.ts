@@ -68,6 +68,10 @@ export interface IBuildProcessProposalActionsParams {
      */
     setupData: IPluginInstallationSetupData[];
     /**
+     * CIDs of the pinned metadata of the plugins to be installed, in installation order and without the processor.
+     */
+    pluginsMetadata: string[];
+    /**
      * Address of the execute condition contract if specific permissions are set.
      */
     executeConditionAddress?: Hex;

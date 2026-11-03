@@ -1,4 +1,5 @@
 import { decodeAbiParameters, decodeFunctionData, type Hex } from 'viem';
+import { setMetadataAbi } from '@/modules/governance/constants/setMetadataAbi';
 import { Network } from '@/shared/api/daoService';
 import { pluginTransactionUtils } from '@/shared/utils/pluginTransactionUtils';
 import { crispE3Config } from '../../constants/crispE3Config';
@@ -177,6 +178,30 @@ describe('crispTransaction utils', () => {
             expect(crispTransactionUtils.buildCreateProposalParams()).toEqual(
                 `0x${'0'.repeat(64)}`,
             );
+        });
+    });
+
+    describe('buildInstalledPluginActions', () => {
+        it('names the installed body by setting its metadata from the DAO', () => {
+            const pluginAddress = '0x811012d319a88c2809ce4b82e2f0dadbb2da26a4';
+            const metadata = '0x697066733a2f2f516d' as Hex;
+
+            const actions = crispTransactionUtils.buildInstalledPluginActions({
+                pluginAddress,
+                metadata,
+            });
+
+            expect(actions).toHaveLength(1);
+            expect(actions[0]).toMatchObject({
+                to: pluginAddress,
+                value: BigInt(0),
+            });
+            expect(
+                decodeFunctionData({
+                    abi: [setMetadataAbi],
+                    data: actions[0].data,
+                }),
+            ).toEqual({ functionName: 'setMetadata', args: [metadata] });
         });
     });
 });
