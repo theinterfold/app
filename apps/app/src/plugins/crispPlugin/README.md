@@ -9,19 +9,19 @@ proposal still renders, with an "encrypted" tally, when those sources are unreac
 
 `B` = backend, `C` = CRISP server, `X` = on-chain read of the `CrispVoting` plugin.
 
-| Field                                       | Source | Where from                                                                         |
-| ------------------------------------------- | ------ | ---------------------------------------------------------------------------------- |
-| title, summary, dates, creator, `hasActions` | B      | proposal (`hasActions` are the actions of the SPP when the body is staged)         |
-| `e3Id`                                      | X      | `getProposal(proposalId).e3Id`                                                     |
-| `settings.minParticipation`                 | X      | `getProposal().parameters`, a percentage                                           |
-| `settings.supportThreshold`                 | X      | `getProposal().parameters`, a percentage                                           |
-| `settings.minVoterVotingPower`              | X      | `getProposal().parameters.minVotingPower`                                          |
-| `settings.minProposerVotingPower`, `minDuration` | B | proposal settings, not re-read on-chain                                       |
-| `settings.token`                            | B      | proposal, with `decimals` read on-chain                                            |
-| `settings.historicalTotalSupply`            | X      | `totalVotingPower(snapshot)`, the quorum denominator                               |
-| `isTallyPublished`, `metrics.votesByOption` | X      | `getTally(proposalId)` (reverts until published) or the stored tally once executed |
-| `failureReason`                             | X      | coordinator `getE3Stage` / `getFailureReason` / `checkFailureCondition`            |
-| round status, committee key                 | C      | `state/lite`, only used to know when a voter can vote                              |
+| Field                                            | Source | Where from                                                                         |
+| ------------------------------------------------ | ------ | ---------------------------------------------------------------------------------- |
+| title, summary, dates, creator, `hasActions`     | B      | proposal (`hasActions` are the actions of the SPP when the body is staged)         |
+| `e3Id`                                           | X      | `getProposal(proposalId).e3Id`                                                     |
+| `settings.minParticipation`                      | X      | `getProposal().parameters`, a percentage                                           |
+| `settings.supportThreshold`                      | X      | `getProposal().parameters`, a percentage                                           |
+| `settings.minVoterVotingPower`                   | X      | `getProposal().parameters.minVotingPower`                                          |
+| `settings.minProposerVotingPower`, `minDuration` | B      | proposal settings, not re-read on-chain                                            |
+| `settings.token`                                 | B      | proposal, with `decimals` read on-chain                                            |
+| `settings.historicalTotalSupply`                 | X      | `totalVotingPower(snapshot)`, the quorum denominator                               |
+| `isTallyPublished`, `metrics.votesByOption`      | X      | `getTally(proposalId)` (reverts until published) or the stored tally once executed |
+| `failureReason`                                  | X      | coordinator `getE3Stage` / `getFailureReason` / `checkFailureCondition`            |
+| round status, committee key                      | C      | `state/lite`, only used to know when a voter can vote                              |
 
 The tally is read on-chain rather than from the server because execution keys on the chain, and an
 executed proposal freezes its tally there.
@@ -82,7 +82,7 @@ CRISP options are positional (`0 = yes, 1 = no, 2 = abstain`), always three, whi
 2. **Sign**: the voter signs the EIP-712 ballot digest read from `CRISPProgram.ballotDigest`, which
    binds the ballot to the round, the slot and the ciphertext, so encryption comes first.
 3. **Prove**: `crispSdkUtils.finishBallot` proves the ballot. The circuit verifies a plain ECDSA
-   signature, so smart-contract wallets (EIP-1271) are refused up front.
+   signature, so smart-contract wallets (EIP-1271) are refused before proving starts.
 4. **Broadcast**: stages the proof on `POST /voting/broadcast` and reads the job until the server
    has decided who sends the commitment.
 
@@ -123,5 +123,5 @@ contract and SDK calls. The CRISP program is resolved from the chain: `plugin.in
 
 **SDK loading.** `@crisp-e3/sdk` and `@interfold/wasm` initialise WASM at import and weigh
 megabytes, so `crispSdkUtils` is the only importer and does it dynamically inside the call, which
-keeps them out of the initial bundle and SSR. Proving runs in a worker that fetches its WASM from a
-`data:` URI, allowed by the CSP (see `proxyUtils`).
+keeps them out of the initial bundle and SSR. In-browser proving loads its circuit from a `data:`
+URI, which the CSP allows (see `proxyUtils`).

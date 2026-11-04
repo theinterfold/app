@@ -112,16 +112,16 @@ export const initialiseCrispPlugin = () => {
             pluginId: crispPlugin.id,
             component: CrispSubmitVote,
         })
-        // The ballot opens once the committee published its key and the tally is decrypted after
-        // it closes, so the result reaches the SPP stage after the stage's own voting window
+        // The tally is only decrypted once the round closes, so the result of the body reaches the
+        // SPP stage after the stage's own voting window
         .registerSlotFunction({
             slotId: GovernanceSlotId.GOVERNANCE_BODY_VOTES_AFTER_WINDOW,
             pluginId: crispPlugin.id,
             function: () => true,
         })
-        // Requesting the round's E3 needs ~3% more gas than the creation's estimate. The estimate
-        // settles on a limit where a staged process swallows the body's out-of-gas and creates the
-        // proposal without its round, so the creation is sent with explicit headroom
+        // Percentage added to the gas estimate of the creation. Requesting the round's E3 needs
+        // slightly more gas than the estimate covers, and a staged process swallows the body's
+        // out-of-gas, creating the proposal without its round
         .registerSlotFunction({
             slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_GAS_HEADROOM,
             pluginId: crispPlugin.id,

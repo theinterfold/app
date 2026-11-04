@@ -1,1 +1,4 @@
-export { CrispMinVoterVotingPowerField } from './crispMinVoterVotingPowerField';
+export {
+    CrispMinVoterVotingPowerField,
+    type ICrispMinVoterVotingPowerFieldProps,
+} from './crispMinVoterVotingPowerField';
