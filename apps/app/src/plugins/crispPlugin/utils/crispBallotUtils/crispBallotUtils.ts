@@ -113,7 +113,8 @@ class CrispBallotUtils {
      * relay is off, a relay limit is reached or the relay key cannot pay.
      *
      * @returns The next step, or undefined when cancelled.
-     * @throws When the server fails the ballot, no longer knows it or does not process it in time.
+     * @throws When the server fails the ballot, no longer knows it, rejects reading it or does not
+     * process it in time, the last transient read failure standing for the timeout when there is one.
      */
     followStagedBallot = async (
         params: IFollowStagedBallotParams,
@@ -128,20 +129,23 @@ class CrispBallotUtils {
                 return;
             }
 
-            const job = await this.readJob(network, step.jobId);
+            const read = await this.readJob(network, step.jobId);
 
-            if (job === null) {
+            if (read.job === null) {
                 throw new Error(
                     'The server no longer has this ballot. Submit it again.',
                 );
             }
 
-            if (job != null && job.status !== 'pending_commitment') {
-                onView(job);
-                step = this.decideCommitmentStep(job);
+            if (read.job != null && read.job.status !== 'pending_commitment') {
+                onView(read.job);
+                step = this.decideCommitmentStep(read.job);
             } else if (Date.now() >= deadline) {
-                throw new Error(
-                    'The server has not processed this ballot yet. Try again later.',
+                throw (
+                    read.error ??
+                    new Error(
+                        'The server has not processed this ballot yet. Try again later.',
+                    )
                 );
             } else {
                 await new Promise((resolve) =>
@@ -186,13 +190,26 @@ class CrispBallotUtils {
         return error instanceof Error ? error : new Error(String(error));
     };
 
-    // Reads the job of a staged ballot: null when the server does not know it, undefined when the
-    // read failed, which counts as no answer yet.
-    private readJob = async (network: Network, jobId: string) => {
+    // Reads the job of a staged ballot: null when the server does not know it. A transient failure
+    // counts as no answer yet and is kept to explain a timeout, any other failure is thrown.
+    private readJob = async (
+        network: Network,
+        jobId: string,
+    ): Promise<{ job?: ICrispVoteResponse | null; error?: unknown }> => {
         try {
-            return await crispService.getVoteAvailability({ network, jobId });
+            return {
+                job: await crispService.getVoteAvailability({ network, jobId }),
+            };
         } catch (error) {
-            return CrispServiceError.isNotFoundError(error) ? null : undefined;
+            if (CrispServiceError.isNotFoundError(error)) {
+                return { job: null };
+            }
+
+            if (CrispServiceError.isTransientError(error)) {
+                return { error };
+            }
+
+            throw error;
         }
     };
 

@@ -181,8 +181,54 @@ describe('crispBallot utils', () => {
             ).rejects.toThrow(/no longer has this ballot/);
         });
 
-        it('keeps polling after a failed read and gives up at the timeout', async () => {
-            availabilitySpy.mockRejectedValue(new Error('network'));
+        it.each([
+            ['a network failure', new Error('network down')],
+            [
+                'a server error',
+                new CrispServiceError('The CRISP server timed out.', 504),
+            ],
+        ])(
+            'keeps polling after %s and reports it at the timeout',
+            async (_, error) => {
+                availabilitySpy.mockRejectedValue(error);
+
+                const result = follow(
+                    generateVoteResponse({
+                        status: 'pending_commitment',
+                        job_id: 'job-1',
+                    }),
+                );
+                const assertion = expect(result).rejects.toBe(error);
+                await jest.advanceTimersByTimeAsync(600_000);
+
+                await assertion;
+                expect(availabilitySpy.mock.calls.length).toBeGreaterThan(1);
+            },
+        );
+
+        it('gives up on the first read the server rejects for good', async () => {
+            availabilitySpy.mockRejectedValue(
+                new CrispServiceError('forbidden', 403),
+            );
+
+            await expect(
+                follow(
+                    generateVoteResponse({
+                        status: 'pending_commitment',
+                        job_id: 'job-1',
+                    }),
+                ),
+            ).rejects.toThrow('forbidden');
+            expect(availabilitySpy).toHaveBeenCalledTimes(1);
+        });
+
+        it('reports that the ballot is not processed yet when the reads keep answering pending', async () => {
+            availabilitySpy.mockResolvedValue(
+                generateVoteResponse({
+                    status: 'pending_commitment',
+                    job_id: 'job-1',
+                }),
+            );
 
             const result = follow(
                 generateVoteResponse({
@@ -196,7 +242,6 @@ describe('crispBallot utils', () => {
             await jest.advanceTimersByTimeAsync(600_000);
 
             await assertion;
-            expect(availabilitySpy.mock.calls.length).toBeGreaterThan(1);
         });
 
         it('stops without reading when cancelled', async () => {
