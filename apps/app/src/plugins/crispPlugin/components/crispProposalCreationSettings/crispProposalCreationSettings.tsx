@@ -55,19 +55,21 @@ export const CrispProposalCreationSettings: React.FC<
     const description =
         body.type === BodyType.EXTERNAL ? undefined : body.description;
 
+    // The card renders its children only when checked, so the reason sits below it
     return (
-        <CheckboxCard
-            checked={false}
-            className="w-full"
-            description={description}
-            disabled={true}
-            label={name}
-        >
+        <div className="flex w-full flex-col gap-2">
+            <CheckboxCard
+                checked={false}
+                className="w-full"
+                description={description}
+                disabled={true}
+                label={name}
+            />
             <p className="text-neutral-500 text-sm">
                 {t(
                     'app.plugins.crisp.crispProposalCreationSettings.notSupported',
                 )}
             </p>
-        </CheckboxCard>
+        </div>
     );
 };
