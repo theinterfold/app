@@ -10,8 +10,9 @@ import {
     generateCrispPluginSettings,
     generateCrispProposal,
 } from '../../testUtils';
-import { CrispSubmitVoteMethod } from '../../types';
+import { CrispMaskTarget, CrispSubmitVoteMethod } from '../../types';
 import { crispBallotWeightUtils } from '../../utils/crispBallotWeightUtils';
+import { crispMaskUtils } from '../../utils/crispMaskUtils';
 import { crispRoundUtils } from '../../utils/crispRoundUtils';
 import { crispSdkUtils } from '../../utils/crispSdkUtils';
 import * as CrispVotingPower from '../useCrispVotingPower';
@@ -25,6 +26,8 @@ describe('useCrispSubmitVote', () => {
     const verifyKeySpy = jest.spyOn(crispSdkUtils, 'verifyCommitteeKey');
     const prepareBallotSpy = jest.spyOn(crispSdkUtils, 'prepareBallot');
     const finishBallotSpy = jest.spyOn(crispSdkUtils, 'finishBallot');
+    const finishMaskSpy = jest.spyOn(crispSdkUtils, 'finishMask');
+    const pickMaskTargetSpy = jest.spyOn(crispMaskUtils, 'pickMaskTarget');
     const broadcastSpy = jest.spyOn(crispService, 'broadcastBallot');
     const availabilitySpy = jest.spyOn(crispService, 'getVoteAvailability');
     const getServerUrlSpy = jest.spyOn(crispService, 'getServerUrl');
@@ -134,6 +137,10 @@ describe('useCrispSubmitVote', () => {
             ReturnType<typeof crispSdkUtils.prepareBallot>
         >);
         finishBallotSpy.mockResolvedValue('0xclientproof');
+        finishMaskSpy.mockResolvedValue('0xmaskproof');
+        pickMaskTargetSpy.mockResolvedValue(
+            '0x4444444444444444444444444444444444444444',
+        );
         broadcastSpy.mockResolvedValue({
             status: 'success',
             tx_hash: '0xhash',
@@ -582,5 +589,285 @@ describe('useCrispSubmitVote', () => {
         expect(result.current.error?.message).toMatch(/Review the ballot/);
         expect(refetchVotingPowerSpy).toHaveBeenCalled();
         expect(prepareBallotSpy).not.toHaveBeenCalled();
+    });
+
+    describe('masks', () => {
+        const target = '0x4444444444444444444444444444444444444444';
+        const daoId = 'dao-id';
+
+        const targetContext = {
+            interfoldAddress: '0x3333333333333333333333333333333333333333',
+            programAddress,
+            inputWindow: [BigInt(0), BigInt(10)],
+            committeeKeyCommitment: '0x12',
+            paramSet: 1,
+            votingPower: BigInt(40),
+            commitmentDeadline: BigInt(10),
+            encodedParams: '0x34',
+        } as const;
+
+        const renderMask = (
+            maskTarget: CrispMaskTarget,
+            method?: CrispSubmitVoteMethod,
+        ) =>
+            renderHook(() =>
+                useCrispSubmitVote({ proposal, maskTarget, daoId, method }),
+            );
+
+        beforeEach(() => {
+            readContextSpy.mockResolvedValue({
+                ...targetContext,
+                inputWindow: [BigInt(0), BigInt(10)],
+            });
+        });
+
+        it('writes a zero ballot of the voter to the own slot with no signature', async () => {
+            mockQueries();
+
+            const { result } = renderMask(CrispMaskTarget.SELF);
+
+            expect(result.current.isMask).toBe(true);
+
+            act(() => result.current.submitVote());
+
+            await waitFor(() =>
+                expect(result.current.state).toEqual('success'),
+            );
+
+            expect(pickMaskTargetSpy).not.toHaveBeenCalled();
+            expect(readContextSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ slot: address, isOwnSlot: true }),
+            );
+            expect(prepareBallotSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    isMaskVote: true,
+                    slotAddress: address,
+                    vote: [0, 0, 0],
+                    votingPower: BigInt(40),
+                }),
+            );
+            expect(readDigestSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    slot: address,
+                    ciphertextCommitment: '0xcommitment',
+                }),
+            );
+            expect(finishMaskSpy).toHaveBeenCalledWith({
+                prepared: expect.anything(),
+                digest: '0xdigest',
+            });
+            expect(signTypedDataAsync).not.toHaveBeenCalled();
+            expect(finishBallotSpy).not.toHaveBeenCalled();
+            // The weight of a vote is never chosen for a mask, which counts nothing.
+            expect(chooseWeightSpy).not.toHaveBeenCalled();
+            expect(result.current.countedShare).toBeUndefined();
+        });
+
+        it('stages the mask with the server exactly as a vote is staged', async () => {
+            mockQueries();
+
+            const { result } = renderMask(CrispMaskTarget.SELF);
+
+            act(() => result.current.submitVote());
+
+            await waitFor(() =>
+                expect(result.current.state).toEqual('success'),
+            );
+
+            expect(broadcastSpy).toHaveBeenCalledWith({
+                network: Network.ETHEREUM_SEPOLIA,
+                e3Id,
+                encodedProof: '0xmaskproof',
+                sendFromWallet: false,
+            });
+            expect(result.current.transactionHash).toEqual('0xhash');
+        });
+
+        it('writes the mask to a random eligible member when masking a voter', async () => {
+            mockQueries();
+
+            const { result } = renderMask(CrispMaskTarget.RANDOM);
+
+            act(() => result.current.submitVote());
+
+            await waitFor(() =>
+                expect(result.current.state).toEqual('success'),
+            );
+
+            expect(pickMaskTargetSpy).toHaveBeenCalledWith({
+                network: Network.ETHEREUM_SEPOLIA,
+                daoId,
+                pluginAddress: proposal.pluginAddress,
+                e3Id: BigInt(e3Id),
+            });
+            expect(readContextSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ slot: target, isOwnSlot: false }),
+            );
+            expect(prepareBallotSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    isMaskVote: true,
+                    slotAddress: target,
+                    vote: [0, 0, 0],
+                    votingPower: BigInt(40),
+                }),
+            );
+            expect(readDigestSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ slot: target }),
+            );
+            expect(signTypedDataAsync).not.toHaveBeenCalled();
+        });
+
+        it('hands the mask to the wallet like a vote when the relay does not send it', async () => {
+            mockQueries();
+            broadcastSpy.mockResolvedValue({
+                status: 'pending_commitment',
+                tx_hash: null,
+                job_id: 'job-1',
+                encoded_proof: null,
+                message: null,
+            });
+            availabilitySpy.mockResolvedValue({
+                status: 'ready_for_commitment',
+                tx_hash: null,
+                job_id: 'job-1',
+                encoded_proof: attestedPayload,
+                message: null,
+            });
+
+            const { result } = renderMask(CrispMaskTarget.RANDOM);
+
+            act(() => result.current.submitVote());
+
+            await waitFor(() => expect(writeContractAsync).toHaveBeenCalled());
+
+            expect(availabilitySpy).toHaveBeenCalledWith({
+                network: Network.ETHEREUM_SEPOLIA,
+                jobId: 'job-1',
+            });
+            expect(writeContractAsync).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    address: programAddress,
+                    functionName: 'publishInput',
+                    args: [BigInt(e3Id), attestedPayload],
+                }),
+            );
+            expect(result.current.isWalletSubmission).toBe(true);
+        });
+
+        it('asks the server to send the commitment from the wallet on the direct path', async () => {
+            mockQueries();
+            broadcastSpy.mockResolvedValue({
+                status: 'ready_for_commitment',
+                tx_hash: null,
+                job_id: 'job-1',
+                encoded_proof: attestedPayload,
+                message: null,
+            });
+
+            const { result } = renderMask(
+                CrispMaskTarget.SELF,
+                CrispSubmitVoteMethod.DIRECT,
+            );
+
+            act(() => result.current.submitVote());
+
+            await waitFor(() => expect(writeContractAsync).toHaveBeenCalled());
+
+            expect(broadcastSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ sendFromWallet: true }),
+            );
+        });
+
+        it('does not report a mask as an update of the vote of the voter', async () => {
+            mockQueries();
+            useVoteStatusSpy.mockReturnValue({
+                data: { slot_active: true },
+                isLoading: false,
+            } as unknown as ReturnType<typeof CrispService.useCrispVoteStatus>);
+
+            const { result } = renderMask(CrispMaskTarget.SELF);
+
+            act(() => result.current.submitVote());
+
+            await waitFor(() =>
+                expect(result.current.state).toEqual('success'),
+            );
+
+            expect(result.current.isVoteUpdate).toBe(false);
+        });
+
+        it('stops before encrypting when no member can be masked', async () => {
+            mockQueries();
+            pickMaskTargetSpy.mockRejectedValue(
+                new Error('No member holds voting power in this round.'),
+            );
+
+            const { result } = renderMask(CrispMaskTarget.RANDOM);
+
+            act(() => result.current.submitVote());
+
+            await waitFor(() => expect(result.current.state).toEqual('error'));
+
+            expect(result.current.error?.message).toMatch(/No member/);
+            expect(readContextSpy).not.toHaveBeenCalled();
+            expect(prepareBallotSpy).not.toHaveBeenCalled();
+        });
+
+        it('refuses to mask an own slot without voting power before proving', async () => {
+            mockQueries();
+            readContextSpy.mockRejectedValue(
+                new Error('Your address holds no voting power in this round.'),
+            );
+
+            const { result } = renderMask(CrispMaskTarget.SELF);
+
+            act(() => result.current.submitVote());
+
+            await waitFor(() => expect(result.current.state).toEqual('error'));
+
+            expect(result.current.error?.message).toMatch(/no voting power/);
+            expect(prepareBallotSpy).not.toHaveBeenCalled();
+        });
+
+        it('surfaces an error instead of masking when the round is not ready', async () => {
+            mockQueries({
+                roundState: buildRoundState({ committee_public_key: [] }),
+            });
+
+            const { result } = renderMask(CrispMaskTarget.RANDOM);
+
+            act(() => result.current.submitVote());
+
+            await waitFor(() => expect(result.current.state).toEqual('error'));
+
+            expect(result.current.error?.message).toMatch(
+                /not accepting ballots/,
+            );
+            expect(pickMaskTargetSpy).not.toHaveBeenCalled();
+        });
+    });
+
+    it('keeps a vote a signed vote, never a mask', async () => {
+        mockQueries();
+
+        const { result } = renderHook(() =>
+            useCrispSubmitVote({ proposal, voteOption: VoteOption.YES }),
+        );
+
+        expect(result.current.isMask).toBe(false);
+
+        act(() => result.current.submitVote());
+
+        await waitFor(() => expect(result.current.state).toEqual('success'));
+
+        expect(prepareBallotSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                isMaskVote: false,
+                slotAddress: address,
+            }),
+        );
+        expect(pickMaskTargetSpy).not.toHaveBeenCalled();
+        expect(finishMaskSpy).not.toHaveBeenCalled();
+        expect(signTypedDataAsync).toHaveBeenCalled();
     });
 });
