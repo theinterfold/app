@@ -1,6 +1,13 @@
 'use client';
 
-import { AlertInline, Button, Card, ProposalStatus } from '@aragon/gov-ui-kit';
+import {
+    AlertInline,
+    Button,
+    Card,
+    DateFormat,
+    formatterUtils,
+    ProposalStatus,
+} from '@aragon/gov-ui-kit';
 import { useEffect, useState } from 'react';
 import { ProposalExecutionStatus } from '@/modules/governance/components/proposalExecutionStatus';
 import { GovernanceSlotId } from '@/modules/governance/constants/moduleSlots';
@@ -41,6 +48,12 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
     });
     const isAwaitingKey = !(isRoundReady || isRoundLoading);
 
+    // The round can start some time after the proposal is created, which the stage window does not show
+    const isAwaitingStart =
+        status === ProposalStatus.PENDING &&
+        resolvedProposal.startDate * 1000 > Date.now();
+    const isUnavailable = isAwaitingStart || isAwaitingKey;
+
     const plugins = useDaoPlugins({
         daoId,
         pluginAddress,
@@ -76,10 +89,10 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
     };
 
     useEffect(() => {
-        if (!canSubmitVote || isAwaitingKey) {
+        if (!canSubmitVote || isUnavailable) {
             setShowOptions(false);
         }
-    }, [canSubmitVote, isAwaitingKey]);
+    }, [canSubmitVote, isUnavailable]);
 
     // An SPP stage keeps this action mounted after its own window, as the CRISP result lands
     // later. The stage only learns the result once the round's proposal is executed, and no vote
@@ -94,7 +107,7 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
     }
 
     // Ballots are only accepted within the round's window
-    if (status !== ProposalStatus.ACTIVE) {
+    if (!(status === ProposalStatus.ACTIVE || isAwaitingStart)) {
         return null;
     }
 
@@ -136,18 +149,32 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
             ) : (
                 <Button
                     className="w-fit"
-                    disabled={isAwaitingKey}
+                    disabled={isUnavailable}
                     onClick={handleVoteClick}
                     size="md"
                 >
                     {t('app.plugins.crisp.crispSubmitVote.buttons.vote')}
                 </Button>
             )}
-            {isAwaitingKey && (
+            {isUnavailable && (
                 <AlertInline
-                    message={t(
-                        'app.plugins.crisp.crispSubmitVote.roundNotReady',
-                    )}
+                    message={
+                        isAwaitingStart
+                            ? t(
+                                  'app.plugins.crisp.crispSubmitVote.roundNotStarted',
+                                  {
+                                      date: formatterUtils.formatDate(
+                                          resolvedProposal.startDate * 1000,
+                                          {
+                                              format: DateFormat.YEAR_MONTH_DAY_TIME,
+                                          },
+                                      ),
+                                  },
+                              )
+                            : t(
+                                  'app.plugins.crisp.crispSubmitVote.roundNotReady',
+                              )
+                    }
                     variant="info"
                 />
             )}
