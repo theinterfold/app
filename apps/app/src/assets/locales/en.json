@@ -2727,7 +2727,7 @@
           "tokenTerm": "Token"
         },
         "crispProposalCreationSettings": {
-          "notSupported": "Proposal creation cannot be restricted to this body in a staged process, because CRISP does not provide a creation condition."
+          "notSupported": "CRISP does not provide a proposal creation condition, so it cannot restrict who creates proposals in a staged process. Allow anyone, add an existing condition, or add a body that can create proposals."
         },
         "crispProposalRefund": {
           "cause": {
