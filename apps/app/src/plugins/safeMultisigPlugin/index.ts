@@ -7,7 +7,7 @@ import { SafeMultisigProposalVotingSummary } from './components/safeMultisigProp
 import { SafeMultisigSubmitVote } from './components/safeMultisigSubmitVote';
 import { SafeMultisigVoteList } from './components/safeMultisigVoteList';
 import { SafePluginInfo } from './components/safePluginInfo';
-import { safeBodyHiddenTabs, safePlugin } from './constants';
+import { externalPluginId, safeBodyHiddenTabs, safePlugin } from './constants';
 import { useSafeMultisigGovernanceSettings } from './hooks/useSafeMultisigGovernanceSettings';
 import { useSafeMultisigVotePermissionCheck } from './hooks/useSafeMultisigVotePermissionCheck';
 
@@ -47,6 +47,13 @@ export const initialiseSafeMultisigPlugin = () => {
         .registerSlotFunction({
             slotId: GovernanceSlotId.GOVERNANCE_BODY_VOTES_AFTER_WINDOW,
             pluginId: safePlugin.id,
+            function: () => true,
+        })
+        // An address body reports to the SPP directly, like a Safe, so it can report until the
+        // stage's max advance date and not only within the voting window
+        .registerSlotFunction({
+            slotId: GovernanceSlotId.GOVERNANCE_BODY_VOTES_AFTER_WINDOW,
+            pluginId: externalPluginId,
             function: () => true,
         })
         .registerSlotFunction({
