@@ -11,6 +11,7 @@ import {
     generateFilterComponentPlugin,
 } from '@/shared/testUtils';
 import * as useCrispProposalModule from '../../hooks/useCrispProposal';
+import * as useCrispRoundModule from '../../hooks/useCrispRound';
 import {
     generateCrispPluginSettings,
     generateCrispProposal,
@@ -34,6 +35,7 @@ describe('<CrispSubmitVote /> component', () => {
         useCrispProposalModule,
         'useCrispProposal',
     );
+    const useCrispRoundSpy = jest.spyOn(useCrispRoundModule, 'useCrispRound');
 
     beforeEach(() => {
         useDialogContextSpy.mockReturnValue(generateDialogContext());
@@ -48,6 +50,10 @@ describe('<CrispSubmitVote /> component', () => {
             proposal,
             isLoading: false,
         }));
+        useCrispRoundSpy.mockReturnValue({
+            isRoundReady: true,
+            isLoading: false,
+        });
     });
 
     afterEach(() => {
@@ -55,6 +61,7 @@ describe('<CrispSubmitVote /> component', () => {
         useDaoPluginsSpy.mockReset();
         usePermissionCheckGuardSpy.mockReset();
         useCrispProposalSpy.mockReset();
+        useCrispRoundSpy.mockReset();
     });
 
     const createTestComponent = (props?: Partial<ICrispSubmitVoteProps>) => {
@@ -103,6 +110,32 @@ describe('<CrispSubmitVote /> component', () => {
                 name: /crispSubmitVote.buttons.vote/,
             });
             expect(button != null).toBe(visible);
+        },
+    );
+
+    it.each([
+        { key: 'not published', isRoundReady: false, awaiting: true },
+        { key: 'published', isRoundReady: true, awaiting: false },
+    ])(
+        'holds the vote while the committee key is $key',
+        ({ isRoundReady, awaiting }) => {
+            useCrispRoundSpy.mockReturnValue({
+                isRoundReady,
+                isLoading: false,
+            });
+            const proposal = generateCrispProposal({
+                startDate: at(-60),
+                endDate: at(3600),
+            });
+            render(createTestComponent({ proposal }));
+
+            const button = screen.getByRole('button', {
+                name: /crispSubmitVote.buttons.vote/,
+            });
+            expect(button.hasAttribute('disabled')).toBe(awaiting);
+            expect(
+                screen.queryByText(/crispSubmitVote.roundNotReady/) != null,
+            ).toBe(awaiting);
         },
     );
 
