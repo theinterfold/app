@@ -1,10 +1,12 @@
 import {
+    AlertInline,
     addressUtils,
     invariant,
     ProposalDataListItem,
     ProposalStatus,
 } from '@aragon/gov-ui-kit';
 import { useCallback, useMemo, useState } from 'react';
+import type { TransactionReceipt } from 'viem';
 import { estimateGas } from 'wagmi/actions';
 import { wagmiConfig } from '@/modules/application/constants/wagmi';
 import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
@@ -28,6 +30,7 @@ import { GovernanceSlotId } from '../../constants/moduleSlots';
 import type {
     ICreateProposalPrerequisiteStepsParams,
     ICreateProposalPrerequisiteStepsResult,
+    ICreateProposalSkippedBodiesParams,
 } from '../../types';
 import { PrerequisiteStepsCollector } from './prerequisiteStepsCollector';
 import type { IPublishProposalDialogProps } from './publishProposalDialog.api';
@@ -68,6 +71,7 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
 
     const { data: dao } = useDao({ urlParams: { id: daoId } });
     const [indexedProposalSlug, setIndexedProposalSlug] = useState<string>();
+    const [hasSkippedBodies, setHasSkippedBodies] = useState(false);
     const proposalDaoId = daoUtils.resolvePluginDaoId(daoId, plugin, dao);
     const rendersProposalStatusCard =
         plugin.interfaceType !== PluginInterfaceType.ADMIN;
@@ -188,6 +192,21 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
     const handleIndexed = useCallback((result: { slug?: string }) => {
         setIndexedProposalSlug(result.slug);
     }, []);
+
+    const handleSuccess = useCallback(
+        (receipt: TransactionReceipt) => {
+            const getSkippedBodies = pluginRegistryUtils.getSlotFunction<
+                ICreateProposalSkippedBodiesParams,
+                string[]
+            >({
+                slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_SKIPPED_BODIES,
+                pluginId: plugin.interfaceType,
+            });
+            const skippedBodies = getSkippedBodies?.({ plugin, receipt }) ?? [];
+            setHasSkippedBodies(skippedBodies.length > 0);
+        },
+        [plugin],
+    );
 
     const handlePrepareTransaction = async () => {
         invariant(
@@ -312,6 +331,7 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
             intent={{ id: intentId, scope: intentScope }}
             network={dao?.network}
             onIndexed={rendersProposalStatusCard ? handleIndexed : undefined}
+            onSuccess={handleSuccess}
             prepareTransaction={handlePrepareTransaction}
             stepper={stepper}
             submitLabel={t(`${namespace}.button.submit`)}
@@ -335,6 +355,14 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
                         usePrerequisiteSteps={usePrerequisiteSteps}
                     />
                 ),
+            )}
+            {hasSkippedBodies && (
+                <AlertInline
+                    message={t(
+                        'app.governance.publishProposalDialog.skippedBodies',
+                    )}
+                    variant="critical"
+                />
             )}
             {rendersProposalStatusCard && (
                 <ProposalDataListItem.Structure

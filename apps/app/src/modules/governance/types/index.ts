@@ -11,6 +11,7 @@ export type {
     ICreateProposalPrerequisiteStepsParams,
     ICreateProposalPrerequisiteStepsResult,
 } from './createProposalPrerequisiteStepsParams';
+export type { ICreateProposalSkippedBodiesParams } from './createProposalSkippedBodiesParams';
 export type { IDaoMemberPageParams } from './daoMemberPageParams';
 export type { IDaoProposalPageParams } from './daoProposalPageParams';
 export type { IMemberExistsResult } from './memberExistsResult';

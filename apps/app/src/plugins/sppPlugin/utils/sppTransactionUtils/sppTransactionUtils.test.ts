@@ -32,7 +32,11 @@ import {
     generateSppStagePlugin,
 } from '../../testUtils';
 import { type ISppStagePlugin, SppProposalType } from '../../types';
-import { sppPluginAbi, sppPluginSetupAbi } from './sppPluginAbi';
+import {
+    sppPluginAbi,
+    sppPluginEventsAbi,
+    sppPluginSetupAbi,
+} from './sppPluginAbi';
 import { sppTransactionUtils } from './sppTransactionUtils';
 
 describe('sppTransaction utils', () => {
@@ -220,6 +224,45 @@ describe('sppTransaction utils', () => {
     describe('buildPrepareUpdateData', () => {
         it('returns empty data as the SPP setup only relies on the current helpers', () => {
             expect(sppTransactionUtils.buildPrepareUpdateData()).toEqual('0x');
+        });
+    });
+
+    describe('getSkippedBodies', () => {
+        const spp = '0xE01DC46CEeb6509a8124Ec904F6E925e0D74e33C';
+        const otherSpp = '0xCB8D916a7BFbA60407f28020E2803E83aE9C64B2';
+        const body = '0xeE50FAAC6006e302eB0308307a5b8A27409EBf05';
+        const otherBody = '0xE99Ea5146aE62e8D86C62a9a29E1ADb2D1D730f4';
+        // ABI encoding of an empty `bytes` reason, as emitted for a body that ran out of gas
+        const emptyReason: Viem.Hex = `0x${'20'.padStart(64, '0')}${'0'.repeat(64)}`;
+
+        const buildSkippedLog = (address: Viem.Hex, skippedBody: Viem.Hex) =>
+            ({
+                address,
+                data: emptyReason,
+                topics: Viem.encodeEventTopics({
+                    abi: sppPluginEventsAbi,
+                    eventName: 'SubProposalNotCreated',
+                    args: {
+                        proposalId: BigInt(1),
+                        stageId: 0,
+                        body: skippedBody,
+                    },
+                }),
+            }) as unknown as Viem.Log;
+
+        it('returns the bodies the process emitted SubProposalNotCreated for, ignoring other contracts', () => {
+            const receipt = {
+                logs: [
+                    buildSkippedLog(spp, body),
+                    buildSkippedLog(otherSpp, otherBody),
+                    { address: spp, data: '0x', topics: [zeroHash] },
+                ],
+            } as unknown as Viem.TransactionReceipt;
+            const plugin = generateDaoPlugin({ address: spp.toLowerCase() });
+
+            expect(
+                sppTransactionUtils.getSkippedBodies({ plugin, receipt }),
+            ).toEqual([body]);
         });
     });
 
