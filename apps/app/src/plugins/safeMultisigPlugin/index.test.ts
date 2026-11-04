@@ -90,13 +90,19 @@ describe('safeMultisigPlugin registrations', () => {
         );
     });
 
-    it('allows Safe bodies to report after the voting window', () => {
+    it.each([
+        { label: 'Safe', body: safeBody },
+        {
+            label: 'address',
+            body: generateSppStagePlugin({ interfaceType: undefined }),
+        },
+    ])('allows $label bodies to report after the voting window', ({ body }) => {
         const votesAfterWindow = pluginRegistryUtils.getSlotFunction<
             undefined,
             boolean
         >({
             slotId: GovernanceSlotId.GOVERNANCE_BODY_VOTES_AFTER_WINDOW,
-            pluginId: sppStageUtils.getBodyPluginId(safeBody),
+            pluginId: sppStageUtils.getBodyPluginId(body),
         });
 
         expect(votesAfterWindow?.(undefined)).toBe(true);
