@@ -6,15 +6,26 @@ describe('crisp service', () => {
     const requestSpy = jest.spyOn(crispService, 'request');
 
     const network = Network.ETHEREUM_SEPOLIA;
-    const serverUrl = crispE3Config[network]!.serverUrl;
+    const serverUrl = 'https://crisp.test';
+    const sepoliaConfig = crispE3Config[network]!;
 
     // Round ids are ~1e76 on-chain, so they travel as decimal strings: a JS number would round
     // them to a different round.
     const e3Id =
         '41376546203487432478123123123123123123123123123123123123123123123123123123123';
 
+    let configuredServer: jest.ReplaceProperty<typeof sepoliaConfig>;
+
+    beforeEach(() => {
+        configuredServer = jest.replaceProperty(crispE3Config, network, {
+            ...sepoliaConfig,
+            serverUrl,
+        });
+    });
+
     afterEach(() => {
         requestSpy.mockReset();
+        configuredServer.restore();
     });
 
     it('getRoundState posts the round id as a string to the CRISP server of the network', async () => {
@@ -91,14 +102,22 @@ describe('crisp service', () => {
         expect(result).toEqual(job);
     });
 
-    it('throws on a network with no CRISP server instead of requesting an invalid url', async () => {
-        await expect(
-            crispService.getRoundState({
-                network: Network.POLYGON_MAINNET,
-                e3Id,
-            }),
-        ).rejects.toThrow(/no CRISP server configured/);
+    it.each([
+        ['a network without a deployment', Network.POLYGON_MAINNET],
+        ['a network whose environment sets no server', network],
+    ])(
+        'throws on %s instead of requesting an invalid url',
+        async (_, target) => {
+            configuredServer.replaceValue({
+                ...sepoliaConfig,
+                serverUrl: undefined,
+            });
 
-        expect(requestSpy).not.toHaveBeenCalled();
-    });
+            await expect(
+                crispService.getRoundState({ network: target, e3Id }),
+            ).rejects.toThrow(/no CRISP server configured/);
+
+            expect(requestSpy).not.toHaveBeenCalled();
+        },
+    );
 });

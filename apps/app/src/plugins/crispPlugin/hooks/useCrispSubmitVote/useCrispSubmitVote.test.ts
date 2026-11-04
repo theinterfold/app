@@ -27,6 +27,7 @@ describe('useCrispSubmitVote', () => {
     const finishBallotSpy = jest.spyOn(crispSdkUtils, 'finishBallot');
     const broadcastSpy = jest.spyOn(crispService, 'broadcastBallot');
     const availabilitySpy = jest.spyOn(crispService, 'getVoteAvailability');
+    const getServerUrlSpy = jest.spyOn(crispService, 'getServerUrl');
     const useVotingPowerSpy = jest.spyOn(
         CrispVotingPower,
         'useCrispVotingPower',
@@ -84,6 +85,7 @@ describe('useCrispSubmitVote', () => {
     };
 
     beforeEach(() => {
+        getServerUrlSpy.mockReturnValue('https://crisp.test');
         useVotingPowerSpy.mockReturnValue({
             votingPower: {
                 ballotVotingPower: BigInt(300),

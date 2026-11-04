@@ -17,7 +17,6 @@ import {
     useCrispRoundState,
     useCrispVoteStatus,
 } from '../../api/crispService';
-import { crispE3Config } from '../../constants/crispE3Config';
 import { crispProgramAbi } from '../../constants/crispProgramAbi';
 import type { ICrispProposal } from '../../types';
 import { CrispSubmitVoteMethod } from '../../types';
@@ -331,8 +330,7 @@ export const useCrispSubmitVote = (
             }
 
             const prepared = await crispSdkUtils.prepareBallot({
-                // The round state was served by the CRISP server of the network.
-                serverUrl: crispE3Config[network]!.serverUrl,
+                serverUrl: crispService.getServerUrl(network),
                 e3Id: roundId,
                 publicKey,
                 preset,
