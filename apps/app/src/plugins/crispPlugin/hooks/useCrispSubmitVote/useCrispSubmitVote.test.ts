@@ -230,7 +230,7 @@ describe('useCrispSubmitVote', () => {
 
         await waitFor(() => expect(result.current.state).toEqual('success'));
 
-        // CRISP orders the options yes, no, abstain; Aragon's NO is 2.
+        // CRISP orders the options yes, no, abstain, so a NO ballot puts the weight in the middle.
         expect(prepareBallotSpy).toHaveBeenCalledWith(
             expect.objectContaining({ vote: [0, 298, 0] }),
         );

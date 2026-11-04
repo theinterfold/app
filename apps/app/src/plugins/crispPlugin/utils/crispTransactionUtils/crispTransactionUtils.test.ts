@@ -183,7 +183,7 @@ describe('crispTransaction utils', () => {
 
     describe('buildInstalledPluginActions', () => {
         it('names the installed body by setting its metadata from the DAO', () => {
-            const pluginAddress = '0x811012d319a88c2809ce4b82e2f0dadbb2da26a4';
+            const pluginAddress = '0x0000000000000000000000000000000000000001';
             const metadata = '0x697066733a2f2f516d' as Hex;
 
             const actions = crispTransactionUtils.buildInstalledPluginActions({

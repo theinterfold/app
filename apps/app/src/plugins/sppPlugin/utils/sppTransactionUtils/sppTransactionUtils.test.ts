@@ -228,10 +228,10 @@ describe('sppTransaction utils', () => {
     });
 
     describe('getSkippedBodies', () => {
-        const spp = '0xE01DC46CEeb6509a8124Ec904F6E925e0D74e33C';
-        const otherSpp = '0xCB8D916a7BFbA60407f28020E2803E83aE9C64B2';
-        const body = '0xeE50FAAC6006e302eB0308307a5b8A27409EBf05';
-        const otherBody = '0xE99Ea5146aE62e8D86C62a9a29E1ADb2D1D730f4';
+        const spp = '0x00000000000000000000000000000000000000A1';
+        const otherSpp = '0x00000000000000000000000000000000000000A2';
+        const body = '0x00000000000000000000000000000000000000B1';
+        const otherBody = '0x00000000000000000000000000000000000000C1';
         // ABI encoding of an empty `bytes` reason, as emitted for a body that ran out of gas
         const emptyReason: Viem.Hex = `0x${'20'.padStart(64, '0')}${'0'.repeat(64)}`;
 
