@@ -2790,7 +2790,8 @@
             "submit": "Submit encrypted vote",
             "vote": "Vote"
           },
-          "roundNotReady": "The ciphernode committee is generating this round's encryption key. Voting opens once it is published, usually within a few minutes."
+          "roundNotReady": "The ciphernode committee is generating this round's encryption key. Voting opens once it is published, usually within a few minutes.",
+          "roundNotStarted": "Voting opens {{date}}, once the ciphernode committee has had time to set up this round."
         },
         "crispSubmitVoteDialog": {
           "action": {

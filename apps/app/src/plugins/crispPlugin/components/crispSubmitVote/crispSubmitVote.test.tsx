@@ -88,28 +88,37 @@ describe('<CrispSubmitVote /> component', () => {
             startDate: at(-60),
             endDate: at(3600),
             visible: true,
+            awaitingStart: false,
         },
         {
             window: 'not yet open',
             startDate: at(60),
             endDate: at(3600),
-            visible: false,
+            visible: true,
+            awaitingStart: true,
         },
         {
             window: 'closed',
             startDate: at(-3600),
             endDate: at(-60),
             visible: false,
+            awaitingStart: false,
         },
     ])(
-        'offers the vote only while the ballot window is open ($window)',
-        ({ startDate, endDate, visible }) => {
+        'holds the vote until the ballot window opens and hides it once closed ($window)',
+        ({ startDate, endDate, visible, awaitingStart }) => {
             const proposal = generateCrispProposal({ startDate, endDate });
             render(createTestComponent({ proposal }));
             const button = screen.queryByRole('button', {
                 name: /crispSubmitVote.buttons.vote/,
             });
             expect(button != null).toBe(visible);
+            expect(button?.hasAttribute('disabled') ?? false).toBe(
+                awaitingStart,
+            );
+            expect(
+                screen.queryByText(/crispSubmitVote.roundNotStarted/) != null,
+            ).toBe(awaitingStart);
         },
     );
 
