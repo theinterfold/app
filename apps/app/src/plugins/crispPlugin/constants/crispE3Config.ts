@@ -27,14 +27,11 @@ export interface ICrispE3Config {
      */
     computeProviderParams: Hex;
     /**
-     * Base URL of the CRISP server handling round state and encrypted ballot broadcasting.
+     * Base URL of the CRISP server handling round state and encrypted ballot broadcasting, unset
+     * when the environment configures none.
      */
-    serverUrl: string;
+    serverUrl?: string;
 }
-
-const sepoliaServerUrl =
-    process.env.NEXT_PUBLIC_CRISP_SERVER_URL ||
-    'https://private-crisp.theinterfold.com';
 
 /**
  * Networks with a live Interfold deployment (coordinator, ciphernode committee and CRISP server).
@@ -50,6 +47,6 @@ export const crispE3Config: Partial<Record<Network, ICrispE3Config>> = {
         // default, the quote reverts on a set the deployment does not accept.
         computeProviderParams:
             '0x7b226e616d65223a224f70656e564d222c22706172616c6c656c223a66616c73652c2262617463685f73697a65223a347d',
-        serverUrl: sepoliaServerUrl,
+        serverUrl: process.env.NEXT_PUBLIC_CRISP_SERVER_URL || undefined,
     },
 };
