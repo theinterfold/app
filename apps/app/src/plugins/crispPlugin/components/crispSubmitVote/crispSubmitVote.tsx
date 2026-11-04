@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Card, ProposalStatus } from '@aragon/gov-ui-kit';
+import { AlertInline, Button, Card, ProposalStatus } from '@aragon/gov-ui-kit';
 import { useEffect, useState } from 'react';
 import { ProposalExecutionStatus } from '@/modules/governance/components/proposalExecutionStatus';
 import { GovernanceSlotId } from '@/modules/governance/constants/moduleSlots';
@@ -14,6 +14,7 @@ import { useDaoPlugins } from '@/shared/hooks/useDaoPlugins';
 import { CrispPluginDialogId } from '../../constants/crispPluginDialogId';
 import type { ICrispSubmitVoteDialogParams } from '../../dialogs/crispSubmitVoteDialog';
 import { useCrispProposal } from '../../hooks/useCrispProposal';
+import { useCrispRound } from '../../hooks/useCrispRound';
 import type { ICrispPlugin, ICrispProposal } from '../../types';
 import { crispProposalUtils } from '../../utils/crispProposalUtils';
 
@@ -30,6 +31,15 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
     // The tally lives on the plugin, the indexed sub-proposal an SPP stage hands over lacks it
     const { proposal: resolvedProposal } = useCrispProposal({ proposal });
     const status = crispProposalUtils.getProposalStatus(resolvedProposal);
+
+    // The window can open before the committee has generated the round's key, and a ballot cannot
+    // be encrypted until it is published.
+    const { isRoundReady, isLoading: isRoundLoading } = useCrispRound({
+        network: resolvedProposal.network,
+        e3Id: resolvedProposal.e3Id,
+        enabled: status === ProposalStatus.ACTIVE,
+    });
+    const isAwaitingKey = !(isRoundReady || isRoundLoading);
 
     const plugins = useDaoPlugins({
         daoId,
@@ -66,10 +76,10 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
     };
 
     useEffect(() => {
-        if (!canSubmitVote) {
+        if (!canSubmitVote || isAwaitingKey) {
             setShowOptions(false);
         }
-    }, [canSubmitVote]);
+    }, [canSubmitVote, isAwaitingKey]);
 
     // An SPP stage keeps this action mounted after its own window, as the CRISP result lands
     // later. The stage only learns the result once the round's proposal is executed, and no vote
@@ -124,9 +134,22 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
                     </div>
                 </>
             ) : (
-                <Button className="w-fit" onClick={handleVoteClick} size="md">
+                <Button
+                    className="w-fit"
+                    disabled={isAwaitingKey}
+                    onClick={handleVoteClick}
+                    size="md"
+                >
                     {t('app.plugins.crisp.crispSubmitVote.buttons.vote')}
                 </Button>
+            )}
+            {isAwaitingKey && (
+                <AlertInline
+                    message={t(
+                        'app.plugins.crisp.crispSubmitVote.roundNotReady',
+                    )}
+                    variant="info"
+                />
             )}
         </div>
     );
