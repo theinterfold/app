@@ -5,9 +5,16 @@ import type { ICrispQuoteCall } from '../../utils/crispFeeUtils';
  * Why a deposit did not happen.
  * - `unavailable`: the quote, the credit or the fee token could not be read.
  * - `balance`: the wallet does not hold the fee-token amount to deposit.
- * - `transaction`: the approval or the deposit failed, including a rejected signature.
+ * - `rejected`: the wallet declined to sign the approval or the deposit.
+ * - `transaction`: the approval or the deposit reverted or could not be sent.
+ * - `unconfirmed`: the deposit was sent but its confirmation could not be read.
  */
-export type CrispDepositFailure = 'unavailable' | 'balance' | 'transaction';
+export type CrispDepositFailure =
+    | 'unavailable'
+    | 'balance'
+    | 'rejected'
+    | 'transaction'
+    | 'unconfirmed';
 
 export interface IUseCrispFeeCreditsParams {
     /**

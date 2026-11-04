@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { erc20Abi, type Hex } from 'viem';
+import { BaseError, erc20Abi, type Hex, UserRejectedRequestError } from 'viem';
 import { useReadContract, useReadContracts, useWriteContract } from 'wagmi';
 import { readContract, waitForTransactionReceipt } from 'wagmi/actions';
 import { wagmiConfig } from '@/modules/application/constants/wagmi';
 import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
 import { useDaoChain } from '@/shared/hooks/useDaoChain';
 import { useToken } from '@/shared/hooks/useToken';
+import { monitoringUtils } from '@/shared/utils/monitoringUtils';
 import { crispFeeUtils, type ICrispQuoteCall } from '../../utils/crispFeeUtils';
 import { crispPluginAbi } from '../../utils/crispTransactionUtils/crispPluginAbi';
 import type {
@@ -128,6 +129,7 @@ export const useCrispFeeCredits = (
         }
 
         setIsDepositing(true);
+        let depositHash: Hex | undefined;
 
         try {
             // Read fresh as the wallet may have changed since the reads of the render
@@ -161,28 +163,51 @@ export const useCrispFeeCredits = (
                     functionName: 'approve',
                     args: [pluginAddress, amount],
                 });
-                await waitForTransactionReceipt(wagmiConfig, {
+                const approval = await waitForTransactionReceipt(wagmiConfig, {
                     hash: approveHash,
                     chainId,
                 });
+
+                if (approval.status === 'reverted') {
+                    return fail('transaction');
+                }
             }
 
-            const depositHash = await writeContractAsync({
+            depositHash = await writeContractAsync({
                 chainId,
                 address: pluginAddress,
                 abi: crispPluginAbi,
                 functionName: 'deposit',
                 args: [amount],
             });
-            await waitForTransactionReceipt(wagmiConfig, {
+            const deposit = await waitForTransactionReceipt(wagmiConfig, {
                 hash: depositHash,
                 chainId,
             });
 
+            if (deposit.status === 'reverted') {
+                return fail('transaction');
+            }
+
             await refetchCredit();
 
             return true;
-        } catch {
+        } catch (error) {
+            if (isUserRejection(error)) {
+                return fail('rejected');
+            }
+
+            monitoringUtils.logError(error, {
+                context: { plugin: pluginAddress, depositHash },
+            });
+
+            // Sent but not confirmed: it may still land, so the voter must not be told nothing was deposited
+            if (depositHash != null) {
+                void refetchCredit();
+
+                return fail('unconfirmed');
+            }
+
             return fail('transaction');
         } finally {
             setIsDepositing(false);
@@ -217,3 +242,7 @@ export const useCrispFeeCredits = (
         refetchCredit,
     };
 };
+
+const isUserRejection = (error: unknown): boolean =>
+    error instanceof BaseError &&
+    error.walk((cause) => cause instanceof UserRejectedRequestError) != null;

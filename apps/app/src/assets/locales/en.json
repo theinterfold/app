@@ -2676,7 +2676,9 @@
             "balance": "Your wallet does not hold enough {{symbol}} to add the credit this proposal needs.",
             "deposit": "The credit could not be added. Nothing was deposited.",
             "quote": "The private computation fee could not be quoted for this process. Proposals cannot be created until this is resolved.",
-            "unavailable": "The fee, your credit or your balance could not be read. Reload the page and try again."
+            "rejected": "The deposit was cancelled in your wallet. Nothing was deposited.",
+            "unavailable": "The fee, your credit or your balance could not be read. Reload the page and try again.",
+            "unconfirmed": "The deposit was sent but could not be confirmed. Check the transaction in your wallet before adding credit again."
           },
           "fee": "Private computation fee",
           "shortfall": "Your credit does not cover this proposal's fee. Add credit to continue."
