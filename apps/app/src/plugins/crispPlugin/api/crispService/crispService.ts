@@ -79,7 +79,11 @@ class CrispService extends HttpService {
             { method: 'POST' },
         );
 
-    private buildServerUrl = (network: Network, url: string): string => {
+    /**
+     * Base URL of the CRISP server of the network.
+     * @throws When the environment configures none for the network.
+     */
+    getServerUrl = (network: Network): string => {
         const serverUrl = crispE3Config[network]?.serverUrl;
 
         if (serverUrl == null) {
@@ -88,8 +92,11 @@ class CrispService extends HttpService {
             );
         }
 
-        return `${serverUrl}${url}`;
+        return serverUrl;
     };
+
+    private buildServerUrl = (network: Network, url: string): string =>
+        `${this.getServerUrl(network)}${url}`;
 }
 
 export const crispService = new CrispService();
