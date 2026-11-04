@@ -48,7 +48,8 @@ export const useCrispVotingPower = (
 
     const { data, isLoading, refetch } = useQuery({
         queryKey: [
-            'CRISP_VOTING_POWER',
+            'crisp',
+            'votingPower',
             proposal?.network,
             proposal?.pluginAddress,
             e3Id,

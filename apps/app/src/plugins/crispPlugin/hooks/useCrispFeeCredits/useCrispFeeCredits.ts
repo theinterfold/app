@@ -201,7 +201,7 @@ export const useCrispFeeCredits = (
                 context: { plugin: pluginAddress, depositHash },
             });
 
-            // Sent but not confirmed: it may still land, so the voter must not be told nothing was deposited
+            // Sent but not confirmed: it may still land, so the user must not be told nothing was deposited
             if (depositHash != null) {
                 void refetchCredit();
 

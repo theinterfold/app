@@ -6,7 +6,7 @@ import { crispBodyUtils } from './crispBodyUtils';
 describe('crispBody utils', () => {
     describe('pluginToFormData', () => {
         it('sets the governance token as membership of the body', () => {
-            const token = generateTokenPluginSettingsToken({ symbol: 'FOLD' });
+            const token = generateTokenPluginSettingsToken({ symbol: 'VTS' });
             const plugin = generateDaoPlugin({
                 settings: generateCrispPluginSettings({ token }),
             });

@@ -1,9 +1,7 @@
 import { ProposalStatus } from '@aragon/gov-ui-kit';
 import { formatUnits } from 'viem';
-import {
-    type ITokenProposalOptionVotes,
-    VoteOption,
-} from '@/plugins/tokenPlugin/types';
+import { VoteOption } from '@/plugins/tokenPlugin/types';
+import { tokenProposalUtils } from '@/plugins/tokenPlugin/utils/tokenProposalUtils';
 import { bigIntUtils } from '@/shared/utils/bigIntUtils';
 import { proposalStatusUtils } from '@/shared/utils/proposalStatusUtils';
 import { CrispE3FailureReason, type ICrispProposal } from '../../types';
@@ -95,8 +93,14 @@ class CrispProposalUtils {
             Math.round(proposal.settings.supportThreshold),
         );
 
-        const yes = this.getVoteByType(votesByOption, VoteOption.YES);
-        const no = this.getVoteByType(votesByOption, VoteOption.NO);
+        const yes = tokenProposalUtils.getVoteByType(
+            votesByOption,
+            VoteOption.YES,
+        );
+        const no = tokenProposalUtils.getVoteByType(
+            votesByOption,
+            VoteOption.NO,
+        );
 
         return (ratioBase - supportThreshold) * yes > supportThreshold * no;
     };
@@ -107,15 +111,6 @@ class CrispProposalUtils {
                 accumulator + bigIntUtils.safeParse(current.totalVotingPower),
             BigInt(0),
         );
-
-    getVoteByType = (
-        votes: ITokenProposalOptionVotes[],
-        type: VoteOption,
-    ): bigint => {
-        const optionVotes = votes.find((option) => option.type === type);
-
-        return bigIntUtils.safeParse(optionVotes?.totalVotingPower);
-    };
 
     getOptionVotingPower = (proposal: ICrispProposal, option: VoteOption) => {
         const votes = proposal.metrics.votesByOption.find(

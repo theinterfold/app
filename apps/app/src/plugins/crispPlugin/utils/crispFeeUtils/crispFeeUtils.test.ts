@@ -90,11 +90,11 @@ describe('crispFeeUtils', () => {
             'error SubProposalCreationFailed(address plugin, bytes reason)',
             'error Unauthorized()',
         ]);
-        const plugin = '0x811012d319a88c2809ce4b82e2f0dadbb2da26a4';
+        const plugin = '0x0000000000000000000000000000000000000001';
         const insufficientCredit = encodeErrorResult({
             abi: revertAbi,
             errorName: 'InsufficientFeeCredit',
-            args: [plugin, BigInt(19_149_428), BigInt(0)],
+            args: [plugin, BigInt(1000), BigInt(0)],
         });
         const unauthorized = encodeErrorResult({
             abi: revertAbi,
