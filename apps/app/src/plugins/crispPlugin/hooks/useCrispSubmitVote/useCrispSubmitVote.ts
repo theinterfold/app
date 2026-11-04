@@ -11,12 +11,7 @@ import {
 import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
 import type { VoteOption } from '@/plugins/tokenPlugin/types';
 import { networkDefinitions } from '@/shared/constants/networkDefinitions';
-import {
-    crispService,
-    type ICrispRoundState,
-    useCrispRoundState,
-    useCrispVoteStatus,
-} from '../../api/crispService';
+import { crispService, useCrispVoteStatus } from '../../api/crispService';
 import { crispProgramAbi } from '../../constants/crispProgramAbi';
 import type { ICrispProposal } from '../../types';
 import { CrispSubmitVoteMethod } from '../../types';
@@ -28,9 +23,8 @@ import {
 import { crispRoundUtils } from '../../utils/crispRoundUtils';
 import { crispSdkUtils } from '../../utils/crispSdkUtils';
 import { crispVoteUtils } from '../../utils/crispVoteUtils';
+import { useCrispRound } from '../useCrispRound';
 import { useCrispVotingPower } from '../useCrispVotingPower';
-
-const roundStatePollInterval = 10_000;
 
 export enum CrispSubmitVoteStep {
     ENCRYPT = 'ENCRYPT',
@@ -117,9 +111,6 @@ export interface IUseCrispSubmitVoteResult {
     isLoading: boolean;
 }
 
-const isRoundOpen = (round?: ICrispRoundState) =>
-    round?.status === 'Active' && round.committee_public_key.length > 0;
-
 /**
  * Drives the encrypted ballot flow against the CRISP program and server:
  *
@@ -201,17 +192,12 @@ export const useCrispSubmitVote = (
     const hasRound = e3Id != null && e3Id !== '';
     const roundParams = { network, e3Id };
 
-    // The committee publishes its key some way into the round, so the round is polled until it is
-    // ready: the server answers 404 until then.
     const {
-        data: roundState,
-        error: roundError,
+        roundState,
+        roundError,
+        isRoundReady,
         isLoading: isRoundLoading,
-    } = useCrispRoundState(roundParams, {
-        enabled: hasRound,
-        refetchInterval: (query) =>
-            isRoundOpen(query.state.data) ? false : roundStatePollInterval,
-    });
+    } = useCrispRound(roundParams);
 
     const { data: voteStatus, isLoading: isVoteStatusLoading } =
         useCrispVoteStatus(
@@ -220,7 +206,6 @@ export const useCrispSubmitVote = (
         );
 
     const hasActiveSlot = voteStatus?.slot_active ?? false;
-    const isRoundReady = isRoundOpen(roundState);
 
     const {
         votingPower,
@@ -440,7 +425,7 @@ export const useCrispSubmitVote = (
         transactionHash: walletHash ?? relayHash,
         error,
         isRoundReady,
-        roundError: roundError ?? undefined,
+        roundError,
         hasActiveSlot,
         isVoteUpdate,
         isWalletSubmission,
