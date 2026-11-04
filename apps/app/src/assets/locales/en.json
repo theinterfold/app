@@ -2414,6 +2414,7 @@
           "success": "View proposal"
         },
         "description": "To publish your proposal, confirm the onchain transaction in your wallet.",
+        "skippedBodies": "The proposal was created, but one of its voting bodies could not open its vote, so the proposal cannot pass. Create the proposal again and keep the gas limit suggested by the app if your wallet lets you change it.",
         "step": {
           "PIN_METADATA": {
             "errorLabel": "Unable to pin data on IPFS",

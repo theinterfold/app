@@ -121,3 +121,16 @@ export const sppPluginAbi = [
         ],
     },
 ] as const;
+
+export const sppPluginEventsAbi = [
+    {
+        type: 'event',
+        name: 'SubProposalNotCreated',
+        inputs: [
+            { name: 'proposalId', type: 'uint256', indexed: true },
+            { name: 'stageId', type: 'uint16', indexed: true },
+            { name: 'body', type: 'address', indexed: true },
+            { name: 'reason', type: 'bytes', indexed: false },
+        ],
+    },
+] as const;

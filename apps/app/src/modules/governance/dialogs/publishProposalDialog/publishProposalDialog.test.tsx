@@ -5,6 +5,7 @@ import {
 } from '@aragon/gov-ui-kit';
 import { render, screen } from '@testing-library/react';
 import { act, type ReactNode } from 'react';
+import type { TransactionReceipt } from 'viem';
 import * as Wagmi from 'wagmi';
 import * as wagmiActions from 'wagmi/actions';
 import * as DaoService from '@/shared/api/daoService';
@@ -429,6 +430,33 @@ describe('<PublishProposalDialog /> component', () => {
             expect(prepared).toEqual(transaction);
         });
     });
+
+    it.each([
+        { skippedBodies: ['0xBody'], isWarned: true },
+        { skippedBodies: [], isWarned: false },
+    ])(
+        'warns that the proposal cannot pass only when the process skipped a body ($skippedBodies)',
+        ({ skippedBodies, isWarned }) => {
+            getSlotFunctionSpy.mockImplementation(({ slotId }) =>
+                slotId ===
+                GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_SKIPPED_BODIES
+                    ? () => skippedBodies
+                    : undefined,
+            );
+            render(createTestComponent({ location: generateDialogLocation() }));
+            const { onSuccess } = (TransactionDialog as jest.Mock).mock
+                .calls[0][0] as ITransactionDialogProps;
+
+            act(() =>
+                onSuccess?.({ logs: [] } as unknown as TransactionReceipt),
+            );
+
+            expect(
+                screen.queryByText(/publishProposalDialog.skippedBodies/) !=
+                    null,
+            ).toBe(isWarned);
+        },
+    );
 });
 
 describe('<PublishProposalDialog /> proposal card status after indexing', () => {

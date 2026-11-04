@@ -52,6 +52,11 @@ export const initialiseSppPlugin = () => {
             pluginId: sppPlugin.id,
             function: useSppPermissionCheckProposalCreation,
         })
+        .registerSlotFunction({
+            slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_SKIPPED_BODIES,
+            pluginId: sppPlugin.id,
+            function: sppTransactionUtils.getSkippedBodies,
+        })
 
         // Settings module slots
         .registerSlotFunction({

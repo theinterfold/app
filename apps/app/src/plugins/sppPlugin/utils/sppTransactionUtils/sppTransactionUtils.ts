@@ -1,6 +1,12 @@
 'use client';
 
-import { encodeAbiParameters, encodeFunctionData, type Hex } from 'viem';
+import { addressUtils } from '@aragon/gov-ui-kit';
+import {
+    encodeAbiParameters,
+    encodeFunctionData,
+    type Hex,
+    parseEventLogs,
+} from 'viem';
 import {
     type ICreateProcessFormDataAdvanced,
     ProposalCreationMode,
@@ -14,6 +20,7 @@ import type { IProposalCreate } from '@/modules/governance/dialogs/publishPropos
 import type {
     IBuildCreateProposalDataParams,
     IBuildCreateProposalParamsParams,
+    ICreateProposalSkippedBodiesParams,
 } from '@/modules/governance/types';
 import {
     createProposalUtils,
@@ -31,7 +38,11 @@ import {
 import type { ITransactionRequest } from '@/shared/utils/transactionUtils';
 import { sppPlugin } from '../../constants/sppPlugin';
 import { type ISppPluginSettings, SppProposalType } from '../../types';
-import { sppPluginAbi, sppPluginSetupAbi } from './sppPluginAbi';
+import {
+    sppPluginAbi,
+    sppPluginEventsAbi,
+    sppPluginSetupAbi,
+} from './sppPluginAbi';
 
 export interface ICreateSppProposalFormData
     extends IProposalCreate,
@@ -190,6 +201,25 @@ class SppTransactionUtils {
     // The SPP setup derives the update from the current helper (the rule condition) it receives in the setup
     // payload and ignores the data field, so the prepare-update data is always empty.
     buildPrepareUpdateData = (): Hex => '0x';
+
+    // Up to build 2 the processor emits `SubProposalNotCreated` instead of reverting when a body fails to
+    // create its proposal, e.g. when it runs out of gas, which leaves a proposal that can never pass.
+    getSkippedBodies = (
+        params: ICreateProposalSkippedBodiesParams,
+    ): string[] => {
+        const { plugin, receipt } = params;
+        const logs = parseEventLogs({
+            abi: sppPluginEventsAbi,
+            eventName: 'SubProposalNotCreated',
+            logs: receipt.logs,
+        });
+
+        return logs
+            .filter((log) =>
+                addressUtils.isAddressEqual(log.address, plugin.address),
+            )
+            .map((log) => log.args.body);
+    };
 
     getUninstallHelpers = (params: IGetUninstallHelpersParams): Hex[] => {
         const { proposalCreationConditionAddress } = params.plugin;
