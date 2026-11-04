@@ -30,6 +30,11 @@ class CrispVoteUtils {
             crispOption === option ? Number(weight) : 0,
         );
     };
+
+    /**
+     * Builds the ballot of a mask: zero on every option, so it adds nothing to the tally.
+     */
+    buildMask = (): number[] => crispVoteOptions.map(() => 0);
 }
 
 export const crispVoteUtils = new CrispVoteUtils();

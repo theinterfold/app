@@ -9,6 +9,8 @@ import {
     ProposalStatus,
 } from '@aragon/gov-ui-kit';
 import { useEffect, useState } from 'react';
+import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
+import { useWalletConnected } from '@/modules/application/hooks/useWalletConnected';
 import { ProposalExecutionStatus } from '@/modules/governance/components/proposalExecutionStatus';
 import { GovernanceSlotId } from '@/modules/governance/constants/moduleSlots';
 import { usePermissionCheckGuard } from '@/modules/governance/hooks/usePermissionCheckGuard';
@@ -22,7 +24,12 @@ import { CrispPluginDialogId } from '../../constants/crispPluginDialogId';
 import type { ICrispSubmitVoteDialogParams } from '../../dialogs/crispSubmitVoteDialog';
 import { useCrispProposal } from '../../hooks/useCrispProposal';
 import { useCrispRound } from '../../hooks/useCrispRound';
-import type { ICrispPlugin, ICrispProposal } from '../../types';
+import { useCrispVotingPower } from '../../hooks/useCrispVotingPower';
+import {
+    CrispMaskTarget,
+    type ICrispPlugin,
+    type ICrispProposal,
+} from '../../types';
 import { crispProposalUtils } from '../../utils/crispProposalUtils';
 
 export interface ICrispSubmitVoteProps
@@ -54,6 +61,20 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
         resolvedProposal.startDate * 1000 > Date.now();
     const isUnavailable = isAwaitingStart || isAwaitingKey;
 
+    // A mask is unsigned and needs no permission, only a wallet to submit it and a round that
+    // takes ballots. Masking one's own slot also needs voting power in it, which the program
+    // refuses a mask to otherwise.
+    const { address } = useWalletAccount();
+    const isWalletConnected = useWalletConnected();
+    const { votingPower } = useCrispVotingPower({
+        proposal: resolvedProposal,
+        address,
+    });
+    const canMask =
+        status === ProposalStatus.ACTIVE && isRoundReady && isWalletConnected;
+    const canMaskSelf =
+        canMask && (votingPower?.ballotVotingPower ?? BigInt(0)) > BigInt(0);
+
     const plugins = useDaoPlugins({
         daoId,
         pluginAddress,
@@ -84,6 +105,15 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
         const params: ICrispSubmitVoteDialogParams = {
             proposal,
             voteOption: Number(selectedOption) as VoteOption,
+        };
+        open(CrispPluginDialogId.SUBMIT_VOTE, { params });
+    };
+
+    const handleMaskClick = (maskTarget: CrispMaskTarget) => {
+        const params: ICrispSubmitVoteDialogParams = {
+            proposal,
+            maskTarget,
+            daoId,
         };
         open(CrispPluginDialogId.SUBMIT_VOTE, { params });
     };
@@ -147,14 +177,49 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
                     </div>
                 </>
             ) : (
-                <Button
-                    className="w-fit"
-                    disabled={isUnavailable}
-                    onClick={handleVoteClick}
-                    size="md"
-                >
-                    {t('app.plugins.crisp.crispSubmitVote.buttons.vote')}
-                </Button>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+                    <Button
+                        className="w-fit"
+                        disabled={isUnavailable}
+                        onClick={handleVoteClick}
+                        size="md"
+                    >
+                        {t('app.plugins.crisp.crispSubmitVote.buttons.vote')}
+                    </Button>
+                    {canMask && (
+                        <Button
+                            className="w-fit"
+                            onClick={() =>
+                                handleMaskClick(CrispMaskTarget.RANDOM)
+                            }
+                            size="md"
+                            variant="secondary"
+                        >
+                            {t(
+                                'app.plugins.crisp.crispSubmitVote.buttons.maskRandom',
+                            )}
+                        </Button>
+                    )}
+                    {canMaskSelf && (
+                        <Button
+                            className="w-fit"
+                            onClick={() =>
+                                handleMaskClick(CrispMaskTarget.SELF)
+                            }
+                            size="md"
+                            variant="secondary"
+                        >
+                            {t(
+                                'app.plugins.crisp.crispSubmitVote.buttons.maskSelf',
+                            )}
+                        </Button>
+                    )}
+                </div>
+            )}
+            {canMask && !showOptions && (
+                <p className="font-normal text-neutral-500 text-sm leading-normal">
+                    {t('app.plugins.crisp.crispSubmitVote.maskNote')}
+                </p>
             )}
             {isUnavailable && (
                 <AlertInline

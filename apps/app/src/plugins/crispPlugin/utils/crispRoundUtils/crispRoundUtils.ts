@@ -165,16 +165,44 @@ class CrispRoundUtils {
     };
 
     /**
+     * Reads only the spendable voting power of a slot in ballot units, which is zero for a slot the
+     * program does not consider eligible.
+     */
+    readSlotVotingPower = (params: {
+        network: Network;
+        programAddress: Hex;
+        e3Id: bigint;
+        slot: Hex;
+    }): Promise<bigint> => {
+        const { network, programAddress, e3Id, slot } = params;
+
+        return readContract(wagmiConfig, {
+            address: programAddress,
+            chainId: networkDefinitions[network].id,
+            abi: crispProgramAbi,
+            functionName: 'votingPowerOf',
+            args: [e3Id, slot],
+        });
+    };
+
+    /**
      * Reads everything a voter needs before encrypting a ballot and refuses where the CRISP program
-     * would reject the ballot anyway, as proving takes long.
+     * would reject the ballot anyway, as proving takes long. The slot is the voter's own for a vote,
+     * and the slot to mask for a mask, which can be someone else's.
      */
     readBallotContext = async (params: {
         network: Network;
         pluginAddress: Hex;
         e3Id: bigint;
         slot: Hex;
+        /**
+         * Defines if the slot belongs to the connected voter, which only changes how a refusal is
+         * worded.
+         * @default true
+         */
+        isOwnSlot?: boolean;
     }): Promise<ICrispBallotContext> => {
-        const { network, pluginAddress, e3Id, slot } = params;
+        const { network, pluginAddress, e3Id, slot, isOwnSlot = true } = params;
         const chainId = networkDefinitions[network].id;
 
         const record = await this.readE3Record({
@@ -225,7 +253,9 @@ class CrispRoundUtils {
 
         if (votingPower === BigInt(0)) {
             throw new Error(
-                'Your address holds no voting power in this round, so it cannot vote.',
+                isOwnSlot
+                    ? 'Your address holds no voting power in this round, so it cannot vote or mask.'
+                    : 'The address to mask holds no voting power in this round, so its slot cannot be masked.',
             );
         }
 

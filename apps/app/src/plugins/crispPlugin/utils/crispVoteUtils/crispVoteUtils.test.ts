@@ -36,4 +36,10 @@ describe('crispVote utils', () => {
             ).toThrow(/too large/);
         });
     });
+
+    describe('buildMask', () => {
+        it('is zero on each of the three options so it adds nothing to the tally', () => {
+            expect(crispVoteUtils.buildMask()).toEqual([0, 0, 0]);
+        });
+    });
 });

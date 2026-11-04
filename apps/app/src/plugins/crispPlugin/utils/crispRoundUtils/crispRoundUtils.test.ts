@@ -92,6 +92,28 @@ describe('crispRound utils', () => {
         });
     });
 
+    describe('readSlotVotingPower', () => {
+        it('reads the spendable voting power of the slot from the program', async () => {
+            mockChain({ votingPowerOf: BigInt(9) });
+
+            const result = await crispRoundUtils.readSlotVotingPower({
+                network: Network.ETHEREUM_SEPOLIA,
+                programAddress: program,
+                e3Id: BigInt(7),
+                slot,
+            });
+
+            expect(result).toEqual(BigInt(9));
+            expect(readContractSpy.mock.calls[0][1]).toEqual(
+                expect.objectContaining({
+                    address: program,
+                    functionName: 'votingPowerOf',
+                    args: [BigInt(7), slot],
+                }),
+            );
+        });
+    });
+
     describe('readBallotContext', () => {
         const params = {
             network: Network.ETHEREUM_SEPOLIA,
@@ -124,6 +146,17 @@ describe('crispRound utils', () => {
             await expect(
                 crispRoundUtils.readBallotContext(params),
             ).rejects.toThrow(/no voting power/);
+        });
+
+        it('words the refusal of a mask target without voting power so it does not blame the voter', async () => {
+            mockChain({ votingPowerOf: BigInt(0) });
+
+            await expect(
+                crispRoundUtils.readBallotContext({
+                    ...params,
+                    isOwnSlot: false,
+                }),
+            ).rejects.toThrow(/address to mask holds no voting power/);
         });
 
         it('refuses a ballot before the input window opens', async () => {

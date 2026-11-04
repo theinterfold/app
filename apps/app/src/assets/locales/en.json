@@ -2787,9 +2787,12 @@
         "crispSubmitVote": {
           "buttons": {
             "cancel": "Cancel",
+            "maskRandom": "Mask a voter",
+            "maskSelf": "Mask my slot",
             "submit": "Submit encrypted vote",
             "vote": "Vote"
           },
+          "maskNote": "Masks make a vote, an update and a mask look the same on-chain, so nobody can tell whether an address really voted. A mask does not change any vote.",
           "roundNotReady": "The ciphernode committee is generating this round's encryption key. Voting opens once it is published, usually within a few minutes.",
           "roundNotStarted": "Voting opens {{date}}, once the ciphernode committee has had time to set up this round."
         },
@@ -2797,10 +2800,12 @@
           "action": {
             "done": "Done",
             "retry": "Try again",
-            "submit": "Submit vote"
+            "submit": "Submit vote",
+            "submitMask": "Submit mask"
           },
           "alert": {
             "error": "Your ballot could not be submitted.",
+            "maskSubmitted": "Your mask was submitted. It does not change any vote.",
             "roundNotReady": "The ciphernode committee has not published its key yet. Ballots can be submitted shortly after voting opens.",
             "slotActive": "Your voting slot already holds an entry in this round, which can be your earlier ballot or a privacy mask. Submitting now replaces it.",
             "voteSubmitted": "Your encrypted ballot was submitted.",
@@ -2808,6 +2813,13 @@
             "walletFallback": "The CRISP network could not submit your ballot for you. Confirm the transaction in your wallet to submit it."
           },
           "description": "Your ballot is encrypted in your browser and stays private until the results are published. Keep this tab open until all steps complete.",
+          "mask": {
+            "description": {
+              "random": "A mask is a zero ballot written to the voting slot of a random member of this body, chosen when you submit. It needs no signature and does not change anyone's vote. Masks make a vote, an update and a mask look the same on-chain, so nobody can tell whether an address really voted.",
+              "self": "A mask is a zero ballot written to your own voting slot. It needs no signature and does not change your vote. Masks make a vote, an update and a mask look the same on-chain, so an observer cannot tell whether you really voted."
+            },
+            "title": "Submit mask"
+          },
           "method": {
             "direct": "Send it myself",
             "directHelpText": "You send the transaction and pay the gas. Nobody can withhold your ballot.",
@@ -2825,7 +2837,9 @@
           "step": {
             "broadcast": "Submitting your ballot",
             "broadcastDirect": "Confirming your transaction",
+            "broadcastMask": "Submitting your mask",
             "encrypt": "Encrypting your ballot",
+            "encryptMask": "Encrypting your mask",
             "prove": "Generating the validity proof",
             "sign": "Signing to authorise your ballot"
           },

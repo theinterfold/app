@@ -28,9 +28,13 @@ import {
     CrispSubmitVoteStep,
     useCrispSubmitVote,
 } from '../../hooks/useCrispSubmitVote';
-import { CrispSubmitVoteMethod, type ICrispProposal } from '../../types';
+import {
+    CrispMaskTarget,
+    CrispSubmitVoteMethod,
+    type ICrispProposal,
+} from '../../types';
 
-export interface ICrispSubmitVoteDialogParams {
+export interface ICrispSubmitVoteDialogVoteParams {
     /**
      * Proposal to submit the vote for.
      */
@@ -39,7 +43,28 @@ export interface ICrispSubmitVoteDialogParams {
      * Selected vote option.
      */
     voteOption: VoteOption;
+    maskTarget?: undefined;
 }
+
+export interface ICrispSubmitVoteDialogMaskParams {
+    /**
+     * Proposal to submit the mask for.
+     */
+    proposal: ICrispProposal;
+    /**
+     * Whose slot the mask is written to.
+     */
+    maskTarget: CrispMaskTarget;
+    /**
+     * ID of the DAO the CRISP body belongs to, whose members a random target is drawn from.
+     */
+    daoId: string;
+    voteOption?: undefined;
+}
+
+export type ICrispSubmitVoteDialogParams =
+    | ICrispSubmitVoteDialogVoteParams
+    | ICrispSubmitVoteDialogMaskParams;
 
 export interface ICrispSubmitVoteDialogProps
     extends IDialogComponentProps<ICrispSubmitVoteDialogParams> {}
@@ -49,7 +74,7 @@ const stepOrder = Object.values(CrispSubmitVoteStep);
 /**
  * Runs the encrypted ballot flow: the ballot is encrypted, signed and proved in the browser, then
  * staged with the CRISP server, which either relays it or hands it back for the voter to submit
- * themselves.
+ * themselves. A mask takes the same path without the signing step.
  */
 export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
     props,
@@ -60,7 +85,7 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
         'CrispSubmitVoteDialog: required parameters must be set.',
     );
 
-    const { proposal: proposalParam, voteOption } = location.params;
+    const { proposal: proposalParam, maskTarget } = location.params;
 
     const { t } = useTranslations();
     const { close } = useDialogContext();
@@ -88,15 +113,25 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
         roundError,
         hasActiveSlot,
         isVoteUpdate,
+        isMask,
         isWalletSubmission,
         countedShare,
         isLoading,
-    } = useCrispSubmitVote({
-        proposal,
-        voteOption,
-        method,
-        randomizeWeight,
-    });
+    } = useCrispSubmitVote(
+        location.params.maskTarget != null
+            ? {
+                  proposal,
+                  maskTarget: location.params.maskTarget,
+                  daoId: location.params.daoId,
+                  method,
+              }
+            : {
+                  proposal,
+                  voteOption: location.params.voteOption,
+                  method,
+                  randomizeWeight,
+              },
+    );
 
     const isPending = state === 'pending';
     const isDirect = method === CrispSubmitVoteMethod.DIRECT;
@@ -150,15 +185,23 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
 
     // A wallet submission, chosen or handed over by the relay, ends on the transaction being mined.
     const buildStepLabel = (step: CrispSubmitVoteStep) => {
-        const suffix =
-            step === CrispSubmitVoteStep.BROADCAST && isWalletSubmission
-                ? 'broadcastDirect'
-                : step.toLowerCase();
+        let suffix = step.toLowerCase();
+
+        if (step === CrispSubmitVoteStep.BROADCAST && isWalletSubmission) {
+            suffix = 'broadcastDirect';
+        } else if (isMask && step !== CrispSubmitVoteStep.PROVE) {
+            suffix = `${suffix}Mask`;
+        }
 
         return t(`app.plugins.crisp.crispSubmitVoteDialog.step.${suffix}`);
     };
 
-    const steps = stepOrder.map((step, index) => ({
+    // A mask is not signed, so it has no signing step.
+    const visibleSteps = isMask
+        ? stepOrder.filter((step) => step !== CrispSubmitVoteStep.SIGN)
+        : stepOrder;
+
+    const steps = visibleSteps.map((step, index) => ({
         id: step,
         order: index,
         meta: {
@@ -183,9 +226,14 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
     const isDisabled =
         isPending || isLoading || isProposalLoading || !isRoundReady;
 
-    const successMessage = isVoteUpdate
+    let successMessage = isVoteUpdate
         ? 'app.plugins.crisp.crispSubmitVoteDialog.alert.voteUpdated'
         : 'app.plugins.crisp.crispSubmitVoteDialog.alert.voteSubmitted';
+
+    if (isMask) {
+        successMessage =
+            'app.plugins.crisp.crispSubmitVoteDialog.alert.maskSubmitted';
+    }
 
     const primaryAction =
         state === 'success'
@@ -199,7 +247,7 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
                   label: t(
                       state === 'error'
                           ? 'app.plugins.crisp.crispSubmitVoteDialog.action.retry'
-                          : 'app.plugins.crisp.crispSubmitVoteDialog.action.submit',
+                          : `app.plugins.crisp.crispSubmitVoteDialog.action.${isMask ? 'submitMask' : 'submit'}`,
                   ),
                   onClick: submitVote,
                   disabled: isDisabled,
@@ -209,11 +257,19 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
     return (
         <>
             <Dialog.Header
-                title={t('app.plugins.crisp.crispSubmitVoteDialog.title')}
+                title={t(
+                    isMask
+                        ? 'app.plugins.crisp.crispSubmitVoteDialog.mask.title'
+                        : 'app.plugins.crisp.crispSubmitVoteDialog.title',
+                )}
             />
             <Dialog.Content className="flex flex-col gap-4 pb-4 md:pb-6">
                 <p className="font-normal text-base text-neutral-500 leading-normal">
-                    {t('app.plugins.crisp.crispSubmitVoteDialog.description')}
+                    {t(
+                        isMask
+                            ? `app.plugins.crisp.crispSubmitVoteDialog.mask.description.${maskTarget === CrispMaskTarget.SELF ? 'self' : 'random'}`
+                            : 'app.plugins.crisp.crispSubmitVoteDialog.description',
+                    )}
                 </p>
                 <InputContainer
                     helpText={t(
@@ -251,18 +307,20 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
                         />
                     </ToggleGroup>
                 </InputContainer>
-                <Switch
-                    checked={randomizeWeight}
-                    disabled={isPending}
-                    helpText={randomizeHelpText}
-                    inlineLabel={t(
-                        'app.plugins.crisp.crispSubmitVoteDialog.randomize.switch',
-                    )}
-                    label={t(
-                        'app.plugins.crisp.crispSubmitVoteDialog.randomize.label',
-                    )}
-                    onCheckedChanged={setRandomizeWeight}
-                />
+                {!isMask && (
+                    <Switch
+                        checked={randomizeWeight}
+                        disabled={isPending}
+                        helpText={randomizeHelpText}
+                        inlineLabel={t(
+                            'app.plugins.crisp.crispSubmitVoteDialog.randomize.switch',
+                        )}
+                        label={t(
+                            'app.plugins.crisp.crispSubmitVoteDialog.randomize.label',
+                        )}
+                        onCheckedChanged={setRandomizeWeight}
+                    />
+                )}
                 <TransactionStatus.Container steps={steps}>
                     {steps.map((step) => (
                         <TransactionStatus.Step key={step.id} {...step} />
@@ -280,7 +338,7 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
                         variant="warning"
                     />
                 )}
-                {hasActiveSlot && state !== 'success' && (
+                {hasActiveSlot && !isMask && state !== 'success' && (
                     <AlertInline
                         message={t(
                             'app.plugins.crisp.crispSubmitVoteDialog.alert.slotActive',
