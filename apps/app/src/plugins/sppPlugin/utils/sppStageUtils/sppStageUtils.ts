@@ -268,6 +268,21 @@ class SppStageUtils {
         return startDate?.plus({ seconds: stage.voteDuration });
     };
 
+    /**
+     * The date an active stage counts down to: the end of its voting window, then its max advance
+     * date while it stays active past the window, awaiting a body that reports its result late.
+     */
+    getStageCountdownEnd = (
+        proposal: ISppProposal,
+        stage: ISppStage,
+    ): DateTime | undefined => {
+        const endDate = this.getStageEndDate(proposal, stage);
+
+        return endDate != null && DateTime.now() >= endDate
+            ? this.getStageMaxAdvance(proposal, stage)
+            : endDate;
+    };
+
     getStageMaxAdvance = (
         proposal: ISppProposal,
         stage: ISppStage,
