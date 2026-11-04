@@ -269,18 +269,31 @@ class SppStageUtils {
     };
 
     /**
-     * The date an active stage counts down to: the end of its voting window, then its max advance
-     * date while it stays active past the window, awaiting a body that reports its result late.
+     * The date an active stage counts down to: the end of its voting window, then the end of the
+     * latest body vote still open past the window, such as one that opens later than the stage, and
+     * then its max advance date while it stays active awaiting a body that reports its result late.
      */
     getStageCountdownEnd = (
         proposal: ISppProposal,
         stage: ISppStage,
     ): DateTime | undefined => {
         const endDate = this.getStageEndDate(proposal, stage);
+        const now = DateTime.now();
 
-        return endDate != null && DateTime.now() >= endDate
-            ? this.getStageMaxAdvance(proposal, stage)
-            : endDate;
+        if (endDate == null || now < endDate) {
+            return endDate;
+        }
+
+        const openBodyEnds = proposal.subProposals
+            .filter(
+                (subProposal) => subProposal.stageIndex === stage.stageIndex,
+            )
+            .map(({ endDate }) => DateTime.fromSeconds(endDate))
+            .filter((bodyEnd) => now < bodyEnd);
+
+        return openBodyEnds.length > 0
+            ? DateTime.max(...openBodyEnds)
+            : this.getStageMaxAdvance(proposal, stage);
     };
 
     getStageMaxAdvance = (

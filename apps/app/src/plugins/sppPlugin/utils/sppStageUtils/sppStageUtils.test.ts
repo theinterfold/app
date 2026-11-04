@@ -148,6 +148,43 @@ describe('SppStageUtils', () => {
                     ?.toSeconds(),
             ).toEqual(startDate.toSeconds() + 86_400);
         });
+
+        it('counts down to a body vote that is still open past the voting window', () => {
+            timeUtils.setTime('2022-02-10T09:10:00.000Z');
+            const bodyEnd = startDate.toSeconds() + 6000;
+            const lateBodyProposal = generateSppProposal({
+                startDate: startDate.toSeconds(),
+                subProposals: [
+                    generateSppSubProposal({ endDate: bodyEnd }),
+                    generateSppSubProposal({
+                        endDate: startDate.toSeconds() + 7200,
+                        stageIndex: 1,
+                    }),
+                ],
+            });
+            expect(
+                sppStageUtils
+                    .getStageCountdownEnd(lateBodyProposal, stage)
+                    ?.toSeconds(),
+            ).toEqual(bodyEnd);
+        });
+
+        it('counts down to the max advance date once the body votes have ended', () => {
+            timeUtils.setTime('2022-02-10T09:50:00.000Z');
+            const endedBodyProposal = generateSppProposal({
+                startDate: startDate.toSeconds(),
+                subProposals: [
+                    generateSppSubProposal({
+                        endDate: startDate.toSeconds() + 5400,
+                    }),
+                ],
+            });
+            expect(
+                sppStageUtils
+                    .getStageCountdownEnd(endedBodyProposal, stage)
+                    ?.toSeconds(),
+            ).toEqual(startDate.toSeconds() + 86_400);
+        });
     });
 
     describe('getStageMaxAdvance', () => {
