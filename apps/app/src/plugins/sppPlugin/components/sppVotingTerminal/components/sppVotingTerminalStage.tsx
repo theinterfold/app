@@ -31,15 +31,15 @@ export const SppVotingTerminalStage: React.FC<ISppVotingTerminalStageProps> = (
     const processedStartDate = sppStageUtils
         .getStageStartDate(proposal, stage)
         ?.toMillis();
-    const processedEndDate = sppStageUtils
-        .getStageEndDate(proposal, stage)
-        ?.toMillis();
 
     // Keep stage status and timings updated for statuses that are time dependent
     const { ACTIVE, PENDING, ACCEPTED, ADVANCEABLE } = ProposalStatus;
 
     const getStageDetails = useCallback(() => {
         const status = sppStageUtils.getStageStatus(proposal, stage);
+        const endDate = sppStageUtils
+            .getStageCountdownEnd(proposal, stage)
+            ?.toMillis();
         const minAdvance = sppStageUtils
             .getStageMinAdvance(proposal, stage)
             ?.toMillis();
@@ -47,10 +47,10 @@ export const SppVotingTerminalStage: React.FC<ISppVotingTerminalStageProps> = (
             .getStageMaxAdvance(proposal, stage)
             ?.toMillis();
 
-        return { status, minAdvance, maxAdvance };
+        return { status, endDate, minAdvance, maxAdvance };
     }, [proposal, stage]);
 
-    const { status, minAdvance, maxAdvance } = useDynamicValue({
+    const { status, endDate, minAdvance, maxAdvance } = useDynamicValue({
         enabled: [ACTIVE, PENDING, ACCEPTED, ADVANCEABLE].includes(
             sppStageUtils.getStageStatus(proposal, stage),
         ),
@@ -66,7 +66,7 @@ export const SppVotingTerminalStage: React.FC<ISppVotingTerminalStageProps> = (
     return (
         <ProposalVoting.Stage
             bodyList={bodyList}
-            endDate={processedEndDate}
+            endDate={endDate}
             index={stage.stageIndex}
             maxAdvance={maxAdvance}
             minAdvance={minAdvance}

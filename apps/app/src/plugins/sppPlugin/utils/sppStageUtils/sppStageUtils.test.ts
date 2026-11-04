@@ -121,6 +121,35 @@ describe('SppStageUtils', () => {
         });
     });
 
+    describe('getStageCountdownEnd', () => {
+        const startDate = DateTime.fromISO('2022-02-10T08:00:00.000Z');
+        const proposal = generateSppProposal({
+            startDate: startDate.toSeconds(),
+        });
+        const stage = generateSppStage({
+            voteDuration: 3600,
+            maxAdvance: 86_400,
+        });
+
+        it('counts down to the end of the voting window while it is open', () => {
+            timeUtils.setTime('2022-02-10T08:30:00.000Z');
+            expect(
+                sppStageUtils
+                    .getStageCountdownEnd(proposal, stage)
+                    ?.toSeconds(),
+            ).toEqual(startDate.toSeconds() + 3600);
+        });
+
+        it('counts down to the max advance date once the voting window has closed', () => {
+            timeUtils.setTime('2022-02-10T09:10:00.000Z');
+            expect(
+                sppStageUtils
+                    .getStageCountdownEnd(proposal, stage)
+                    ?.toSeconds(),
+            ).toEqual(startDate.toSeconds() + 86_400);
+        });
+    });
+
     describe('getStageMaxAdvance', () => {
         const getStartStartDateSpy = jest.spyOn(
             sppStageUtils,
