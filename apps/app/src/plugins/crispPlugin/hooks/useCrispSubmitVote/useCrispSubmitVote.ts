@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { type Hex, size } from 'viem';
+import { type Hex, isAddressEqual, size } from 'viem';
 import {
     useSignTypedData,
     useSwitchChain,
@@ -14,12 +14,13 @@ import { networkDefinitions } from '@/shared/constants/networkDefinitions';
 import { crispService, useCrispVoteStatus } from '../../api/crispService';
 import { crispProgramAbi } from '../../constants/crispProgramAbi';
 import type { ICrispProposal } from '../../types';
-import { CrispSubmitVoteMethod } from '../../types';
+import { CrispMaskTarget, CrispSubmitVoteMethod } from '../../types';
 import { crispBallotUtils } from '../../utils/crispBallotUtils';
 import {
     crispBallotWeightUtils,
     type ICrispBallotWeight,
 } from '../../utils/crispBallotWeightUtils';
+import { crispMaskUtils } from '../../utils/crispMaskUtils';
 import { crispRoundUtils } from '../../utils/crispRoundUtils';
 import { crispSdkUtils } from '../../utils/crispSdkUtils';
 import { crispVoteUtils } from '../../utils/crispVoteUtils';
@@ -35,15 +36,11 @@ export enum CrispSubmitVoteStep {
 
 export type CrispSubmitVoteState = 'idle' | 'pending' | 'success' | 'error';
 
-export interface IUseCrispSubmitVoteParams {
+interface IUseCrispSubmitVoteBaseParams {
     /**
      * Proposal to submit the ballot for.
      */
     proposal: ICrispProposal;
-    /**
-     * Vote option selected by the user.
-     */
-    voteOption: VoteOption;
     /**
      * How the ballot reaches the chain.
      * @default CrispSubmitVoteMethod.RELAY
@@ -52,14 +49,41 @@ export interface IUseCrispSubmitVoteParams {
     /**
      * Defines if the ballot counts a random weight of up to 1% below the voting power, so the
      * published totals cannot be used to work out how voters voted (see `crispBallotWeightUtils`).
+     * Does not apply to a mask, which counts nothing.
      * @default true
      */
     randomizeWeight?: boolean;
 }
 
+interface IUseCrispSubmitVoteVoteParams extends IUseCrispSubmitVoteBaseParams {
+    /**
+     * Vote option selected by the user.
+     */
+    voteOption: VoteOption;
+    maskTarget?: undefined;
+}
+
+interface IUseCrispSubmitVoteMaskParams extends IUseCrispSubmitVoteBaseParams {
+    /**
+     * Whose slot to write a mask to. Submits a mask, a zero ballot that needs no signature, instead
+     * of a vote.
+     */
+    maskTarget: CrispMaskTarget;
+    /**
+     * ID of the DAO the CRISP body belongs to, whose members a random mask target is drawn from.
+     */
+    daoId: string;
+    voteOption?: undefined;
+}
+
+export type IUseCrispSubmitVoteParams =
+    | IUseCrispSubmitVoteVoteParams
+    | IUseCrispSubmitVoteMaskParams;
+
 export interface IUseCrispSubmitVoteResult {
     /**
-     * Submits the encrypted ballot. Does nothing while a submission is already running.
+     * Submits the encrypted ballot, or the mask. Does nothing while a submission is already
+     * running.
      */
     submitVote: () => void;
     /**
@@ -92,9 +116,13 @@ export interface IUseCrispSubmitVoteResult {
      */
     hasActiveSlot: boolean;
     /**
-     * Defines if the last submission replaced an entry of the slot.
+     * Defines if the last submission replaced an entry of the slot of the voter with a vote.
      */
     isVoteUpdate: boolean;
+    /**
+     * Defines if the flow submits a mask, which has no signing step.
+     */
+    isMask: boolean;
     /**
      * Defines if the voter's wallet sends the commitment, either because the voter chose it or
      * because the CRISP server did not relay the ballot itself.
@@ -122,6 +150,10 @@ export interface IUseCrispSubmitVoteResult {
  *    requires. The server then relays the commitment, or hands the attested payload back and the
  *    wallet of the voter calls `publishInput` itself.
  *
+ * A mask is a zero ballot written to the slot of the connected wallet or of a random eligible
+ * member. It takes the same path, with the same digest, so it cannot be told apart from a vote
+ * on-chain, except that nothing is signed.
+ *
  * The attested payload, not the proof of the SDK, is what reaches the contract on either path.
  */
 export const useCrispSubmitVote = (
@@ -129,11 +161,20 @@ export const useCrispSubmitVote = (
 ): IUseCrispSubmitVoteResult => {
     const {
         proposal,
-        voteOption,
         method = CrispSubmitVoteMethod.RELAY,
         randomizeWeight = true,
     } = params;
     const { network, e3Id, pluginAddress } = proposal;
+
+    const choice =
+        params.maskTarget != null
+            ? ({
+                  kind: 'mask',
+                  target: params.maskTarget,
+                  daoId: params.daoId,
+              } as const)
+            : ({ kind: 'vote', option: params.voteOption } as const);
+    const isMask = choice.kind === 'mask';
 
     const { address, chainId: walletChainId } = useWalletAccount();
     const { id: chainId } = networkDefinitions[network];
@@ -220,6 +261,7 @@ export const useCrispSubmitVote = (
 
     useEffect(() => {
         if (
+            isMask ||
             !hasRound ||
             address == null ||
             availablePower == null ||
@@ -240,7 +282,7 @@ export const useCrispSubmitVote = (
                 randomizeWeight,
             ),
         });
-    }, [address, availablePower, e3Id, hasRound, randomizeWeight]);
+    }, [address, availablePower, e3Id, hasRound, isMask, randomizeWeight]);
 
     const countedShare =
         ballotWeight != null && votingPower != null
@@ -261,7 +303,7 @@ export const useCrispSubmitVote = (
         setError(undefined);
         setRelayHash(undefined);
         setWalletHash(undefined);
-        setIsVoteUpdate(hasActiveSlot);
+        setIsVoteUpdate(hasActiveSlot && !isMask);
         setIsWalletSubmission(method === CrispSubmitVoteMethod.DIRECT);
         setActiveStep(CrispSubmitVoteStep.ENCRYPT);
         setState('pending');
@@ -279,13 +321,27 @@ export const useCrispSubmitVote = (
 
             // E3 ids are around 1e76 and only become bigints for the contracts and the SDK.
             const roundId = BigInt(e3Id);
-            const slot = address as Hex;
+            const ownSlot = address as Hex;
+
+            // A random mask target is drawn among the members of the body whose slot the program
+            // accepts, so the draw can be refused as only the chain knows who is eligible.
+            const slot =
+                choice.kind === 'mask' &&
+                choice.target === CrispMaskTarget.RANDOM
+                    ? await crispMaskUtils.pickMaskTarget({
+                          network,
+                          daoId: choice.daoId,
+                          pluginAddress: pluginAddress as Hex,
+                          e3Id: roundId,
+                      })
+                    : ownSlot;
 
             const context = await crispRoundUtils.readBallotContext({
                 network,
                 pluginAddress: pluginAddress as Hex,
                 e3Id: roundId,
                 slot,
+                isOwnSlot: isAddressEqual(slot, ownSlot),
             });
 
             const publicKey = Uint8Array.from(roundState.committee_public_key);
@@ -295,23 +351,31 @@ export const useCrispSubmitVote = (
                 encodedParams: context.encodedParams,
             });
 
-            // The ballot counts the weight reviewed in the dialog, rechecked against the voting
-            // power the program reports now, while the proof names the full power.
-            let countedWeight: bigint;
+            let vote: number[];
 
-            try {
-                countedWeight = crispBallotWeightUtils.assertReviewed(
-                    ballotWeight,
-                    {
-                        roundId: e3Id,
-                        voter: address,
-                        available: context.votingPower,
-                    },
-                );
-            } catch (reviewError) {
-                void refetchVotingPower();
+            if (choice.kind === 'mask') {
+                vote = crispVoteUtils.buildMask();
+            } else {
+                // The ballot counts the weight reviewed in the dialog, rechecked against the
+                // voting power the program reports now, while the proof names the full power.
+                let countedWeight: bigint;
 
-                throw reviewError;
+                try {
+                    countedWeight = crispBallotWeightUtils.assertReviewed(
+                        ballotWeight,
+                        {
+                            roundId: e3Id,
+                            voter: address,
+                            available: context.votingPower,
+                        },
+                    );
+                } catch (reviewError) {
+                    void refetchVotingPower();
+
+                    throw reviewError;
+                }
+
+                vote = crispVoteUtils.buildBallot(choice.option, countedWeight);
             }
 
             const prepared = await crispSdkUtils.prepareBallot({
@@ -320,7 +384,8 @@ export const useCrispSubmitVote = (
                 publicKey,
                 preset,
                 slotAddress: slot,
-                vote: crispVoteUtils.buildBallot(voteOption, countedWeight),
+                vote,
+                isMaskVote: isMask,
                 votingPower: context.votingPower,
             });
 
@@ -332,37 +397,48 @@ export const useCrispSubmitVote = (
                 ciphertextCommitment: prepared.ctCommitment,
             });
 
-            setActiveStep(CrispSubmitVoteStep.SIGN);
+            let encodedProof: Hex;
 
-            // The wallet only signs for the chain it is on, and a relayed ballot sends no
-            // transaction that would switch it.
-            await switchToDaoChain();
+            if (choice.kind === 'mask') {
+                setActiveStep(CrispSubmitVoteStep.PROVE);
 
-            const signature = await signTypedDataAsync(
-                crispBallotUtils.buildBallotSignatureRequest({
-                    chainId,
-                    crispProgram: context.programAddress,
-                    e3Id: roundId,
-                    slot,
-                    ciphertextCommitment: prepared.ctCommitment,
-                }),
-            );
+                encodedProof = await crispSdkUtils.finishMask({
+                    prepared,
+                    digest,
+                });
+            } else {
+                setActiveStep(CrispSubmitVoteStep.SIGN);
 
-            // The circuit verifies a plain 65-byte ECDSA signature, not the EIP-1271 answer of a
-            // smart contract account.
-            if (size(signature) !== 65) {
-                throw new Error(
-                    'This wallet signed with a smart-contract signature (for example a Safe), which encrypted ballots do not support yet. Vote from a wallet with its own key.',
+                // The wallet only signs for the chain it is on, and a relayed ballot sends no
+                // transaction that would switch it.
+                await switchToDaoChain();
+
+                const signature = await signTypedDataAsync(
+                    crispBallotUtils.buildBallotSignatureRequest({
+                        chainId,
+                        crispProgram: context.programAddress,
+                        e3Id: roundId,
+                        slot,
+                        ciphertextCommitment: prepared.ctCommitment,
+                    }),
                 );
+
+                // The circuit verifies a plain 65-byte ECDSA signature, not the EIP-1271 answer of
+                // a smart contract account.
+                if (size(signature) !== 65) {
+                    throw new Error(
+                        'This wallet signed with a smart-contract signature (for example a Safe), which encrypted ballots do not support yet. Vote from a wallet with its own key.',
+                    );
+                }
+
+                setActiveStep(CrispSubmitVoteStep.PROVE);
+
+                encodedProof = await crispSdkUtils.finishBallot({
+                    prepared,
+                    digest,
+                    signature,
+                });
             }
-
-            setActiveStep(CrispSubmitVoteStep.PROVE);
-
-            const encodedProof = await crispSdkUtils.finishBallot({
-                prepared,
-                digest,
-                signature,
-            });
 
             setActiveStep(CrispSubmitVoteStep.BROADCAST);
 
@@ -428,6 +504,7 @@ export const useCrispSubmitVote = (
         roundError,
         hasActiveSlot,
         isVoteUpdate,
+        isMask,
         isWalletSubmission,
         countedShare,
         isLoading:

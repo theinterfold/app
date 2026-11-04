@@ -53,13 +53,21 @@ export interface IPrepareBallotParams {
      */
     preset: CircuitPreset;
     /**
-     * Address of the slot the ballot is written to, which is the voter.
+     * Address of the slot the ballot is written to, which is the voter for a vote and the target
+     * for a mask.
      */
     slotAddress: string;
     /**
-     * Ballot as one value per option, the weight on the chosen option and zero elsewhere.
+     * Ballot as one value per option, the weight on the chosen option and zero elsewhere. A mask is
+     * zero everywhere.
      */
     vote: number[];
+    /**
+     * Defines if the ballot is a mask: a zero ballot written unsigned to a slot, which cannot be
+     * told apart from a vote on-chain.
+     * @default false
+     */
+    isMaskVote?: boolean;
     /**
      * Voting power of the slot in ballot units, as `CRISPProgram.votingPowerOf` reports it. The
      * program verifies the proof against exactly this number.
@@ -81,6 +89,9 @@ export interface IFinishBallotParams {
      */
     signature: Hex;
 }
+
+export interface IFinishMaskParams
+    extends Omit<IFinishBallotParams, 'signature'> {}
 
 // Circuit preset of each BFV parameter set the app has circuits for. An unlisted set is refused
 // instead of proved with other circuits, as that proof would fail on-chain.
@@ -273,6 +284,7 @@ class CrispSdkUtils {
             preset,
             slotAddress,
             vote,
+            isMaskVote = false,
             votingPower,
         } = params;
 
@@ -284,7 +296,7 @@ class CrispSdkUtils {
             e3Id,
             publicKey,
             slotAddress,
-            isMaskVote: false,
+            isMaskVote,
             numOptions: vote.length,
             vote,
             censusMode: 'onchain',
@@ -303,6 +315,21 @@ class CrispSdkUtils {
         );
 
         const proof = await finishBallotProof(prepared, digest, signature);
+
+        return encodeSolidityProof(proof);
+    };
+
+    /**
+     * Second phase of a mask: proves it against the same digest a vote carries, with no
+     * signature, as the circuit does not check one on the mask branch.
+     */
+    finishMask = async (params: IFinishMaskParams): Promise<Hex> => {
+        const { prepared, digest } = params;
+        const { encodeSolidityProof, finishMaskProof } = await import(
+            '@crisp-e3/sdk'
+        );
+
+        const proof = await finishMaskProof(prepared, digest);
 
         return encodeSolidityProof(proof);
     };

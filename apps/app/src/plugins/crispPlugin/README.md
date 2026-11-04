@@ -125,3 +125,38 @@ contract and SDK calls. The CRISP program is resolved from the chain: `plugin.in
 megabytes, so `crispSdkUtils` is the only importer and does it dynamically inside the call, which
 keeps them out of the initial bundle and SSR. In-browser proving loads its circuit from a `data:`
 URI, which the CSP allows (see `proxyUtils`).
+
+## Masking
+
+A mask is a zero ballot that anyone can write, unsigned, to any eligible voting slot, so an observer
+of the chain cannot tell whether an address really voted: a vote, an update and a mask look the
+same on-chain. A mask never changes a vote, as the SDK adds the zero ballot to the ciphertext
+already in the slot. The vote area offers two actions next to **Vote**, only while the round takes
+ballots and a wallet is connected:
+
+- **Mask a voter** (`CrispMaskTarget.RANDOM`) writes the mask to a uniformly random member of the
+  body.
+- **Mask my slot** (`CrispMaskTarget.SELF`) writes it to the slot of the connected wallet, which
+  needs voting power in the round.
+
+Both open the submit dialog in mask mode: `useCrispSubmitVote({ proposal, maskTarget, daoId })`
+runs the vote flow without the sign step (encrypt, prove, broadcast), so the broadcast, the job
+follow-up and the wallet fallback are the vote ones and hit the server with the same requests. What
+differs:
+
+- The ballot is `crispVoteUtils.buildMask()`, zero on each of the three options, prepared with
+  `isMaskVote: true` for the slot of the target and the voting power of **that slot**
+  (`votingPowerOf(e3Id, target)`), which the proof takes as public input. The digest is read from
+  `CRISPProgram.ballotDigest` for the target slot as for a vote, and `crispSdkUtils.finishMask`
+  proves it with no signature.
+- `CRISPProgram` refuses a mask to a slot below the divisor of the round (`SlotNotEligible`), so
+  the target must hold voting power. `readBallotContext` checks it before the slow proving starts,
+  with a wording that fits an own slot and someone else's.
+- The members of a random target come from the member list of the backend for the body
+  (`governanceService.getMemberList` with `daoId` and `pluginAddress`), read page by page. A target
+  is drawn with `crypto.getRandomValues` and rejection sampling (`crispMaskUtils.drawIndex`), so
+  the draw has no modulo bias. Eligibility is then read on-chain and an ineligible draw is redrawn
+  from the remaining members, which keeps the pick uniform over the eligible ones. A body with no
+  member, or none with voting power, fails before anything is encrypted.
+
+The weight randomization does not apply to a mask, which counts nothing.
