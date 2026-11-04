@@ -36,6 +36,13 @@ export class CrispServiceError extends Error {
     static isNotFoundError = (error: unknown): error is CrispServiceError =>
         error instanceof CrispServiceError && error.status === 404;
 
+    // A failure the server may answer differently later: no response at all, rate limiting or a
+    // server-side error. Any other rejection stands.
+    static isTransientError = (error: unknown): boolean =>
+        !(error instanceof CrispServiceError) ||
+        error.status === 429 ||
+        error.status >= 500;
+
     private static parseMessage = (body: string): string | undefined => {
         let parsed: unknown = body;
 
