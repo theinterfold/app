@@ -36,7 +36,12 @@ export const SppVotingTerminalStage: React.FC<ISppVotingTerminalStageProps> = (
     const { ACTIVE, PENDING, ACCEPTED, ADVANCEABLE } = ProposalStatus;
 
     const getStageDetails = useCallback(() => {
-        const status = sppStageUtils.getStageStatus(proposal, stage);
+        const stageStatus = sppStageUtils.getStageStatus(proposal, stage);
+        // A stage that only waits for a body reporting its result after voting stays active, but
+        // nobody can vote in it any more: its header must not count down a vote that is over.
+        const status = sppStageUtils.isAwaitingLateResult(proposal, stage)
+            ? ProposalStatus.PENDING
+            : stageStatus;
         const endDate = sppStageUtils
             .getStageCountdownEnd(proposal, stage)
             ?.toMillis();
