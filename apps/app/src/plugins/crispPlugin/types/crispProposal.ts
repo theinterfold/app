@@ -1,6 +1,6 @@
 import type { ITokenProposal } from '@/plugins/tokenPlugin/types';
 import type { ICrispPluginSettings } from './crispPluginSettings';
-import type { CrispE3FailureReason } from './enum';
+import type { CrispE3FailureReason, CrispE3Stage } from './enum';
 
 export interface ICrispProposal extends Omit<ITokenProposal, 'settings'> {
     /**
@@ -27,4 +27,14 @@ export interface ICrispProposal extends Omit<ITokenProposal, 'settings'> {
      * tally, the fee of the proposal is then refundable.
      */
     failureReason?: CrispE3FailureReason;
+    /**
+     * Interfold stage of a round that has not settled yet, as the backend last read it. Undefined
+     * until the backend has read it.
+     */
+    e3Stage?: CrispE3Stage;
+    /**
+     * Unix seconds after which the round can be marked failed in `e3Stage`. Undefined when the
+     * stage has no such deadline or the backend has not read it.
+     */
+    e3StageDeadline?: number;
 }

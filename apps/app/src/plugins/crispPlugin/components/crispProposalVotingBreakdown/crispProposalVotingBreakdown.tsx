@@ -9,9 +9,9 @@ import {
 import type { ReactNode } from 'react';
 import { formatUnits } from 'viem';
 import { VoteOption } from '@/plugins/tokenPlugin/types';
-import { useTranslations } from '@/shared/components/translationsProvider';
 import { bigIntUtils } from '@/shared/utils/bigIntUtils';
 import { useCrispProposal } from '../../hooks/useCrispProposal';
+import { useCrispRoundPhase } from '../../hooks/useCrispRoundPhase';
 import type { ICrispProposal } from '../../types';
 import { crispProposalUtils } from '../../utils/crispProposalUtils';
 import { CrispProposalRefund } from '../crispProposalRefund';
@@ -36,10 +36,9 @@ export const CrispProposalVotingBreakdown: React.FC<
 > = (props) => {
     const { proposal: proposalEnvelope, children, isVeto } = props;
 
-    const { t } = useTranslations();
-
     // The backend indexes the round while it goes, the proposal is polled until it is settled.
     const { proposal } = useCrispProposal({ proposal: proposalEnvelope });
+    const { heading, description } = useCrispRoundPhase(proposal);
 
     const { symbol, decimals } = proposal.settings.token;
     const { minParticipation, supportThreshold, historicalTotalSupply } =
@@ -50,8 +49,9 @@ export const CrispProposalVotingBreakdown: React.FC<
     }
 
     // Encrypted until the committee publishes the tally, and until the divisor that turns its
-    // counts into token units is known. The children hold the vote submission, which is open
-    // exactly while the tally is encrypted.
+    // counts into token units is known. The state tells which step of the round it waits on, and
+    // until when that step may run before the round fails. The children hold the vote
+    // submission, which is open exactly while the tally is encrypted.
     if (!crispProposalUtils.isTallyResolved(proposal)) {
         return (
             <Tabs.Content
@@ -59,12 +59,8 @@ export const CrispProposalVotingBreakdown: React.FC<
                 value={ProposalVotingTab.BREAKDOWN}
             >
                 <EmptyState
-                    description={t(
-                        'app.plugins.crisp.crispProposalVotingBreakdown.encrypted.description',
-                    )}
-                    heading={t(
-                        'app.plugins.crisp.crispProposalVotingBreakdown.encrypted.heading',
-                    )}
+                    description={description}
+                    heading={heading}
                     objectIllustration={{ object: 'TIMELOCK' }}
                 />
                 {children}
