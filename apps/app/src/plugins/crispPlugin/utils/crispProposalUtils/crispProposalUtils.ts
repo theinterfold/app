@@ -61,16 +61,22 @@ class CrispProposalUtils {
         );
     };
 
-    // The tally counts are in units of the round divisor, so they cannot be converted without it
+    // The backend serves the tally once the round divisor is known
     isTallyResolved = (proposal: ICrispProposal): boolean =>
         proposal.isTallyPublished &&
         bigIntUtils.safeParse(proposal.votingPowerDivisor) > BigInt(0);
+
+    // Nothing left to wait for: the proposal was executed, its round failed or the tally is published
+    isSettled = (proposal: ICrispProposal): boolean =>
+        proposal.executed.status ||
+        proposal.failureReason != null ||
+        proposal.isTallyPublished;
 
     isApprovalReached = (proposal: ICrispProposal): boolean =>
         this.isMinParticipationReached(proposal) &&
         this.isSupportReached(proposal);
 
-    // The votes are in raw token units (the resolver multiplies the tally counts by the divisor)
+    // The backend serves the votes in raw token units
     isMinParticipationReached = (proposal: ICrispProposal): boolean => {
         const { minParticipation, historicalTotalSupply } = proposal.settings;
 

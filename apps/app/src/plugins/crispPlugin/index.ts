@@ -23,7 +23,6 @@ import { useCrispPermissionCheckProposalCreation } from './hooks/useCrispPermiss
 import { useCrispPermissionCheckVoteSubmission } from './hooks/useCrispPermissionCheckVoteSubmission';
 import { crispBodyUtils } from './utils/crispBodyUtils';
 import { crispFeeUtils } from './utils/crispFeeUtils';
-import { crispProposalResolverUtils } from './utils/crispProposalResolverUtils';
 import { crispProposalUtils } from './utils/crispProposalUtils';
 import { crispTransactionUtils } from './utils/crispTransactionUtils';
 
@@ -67,12 +66,6 @@ export const initialiseCrispPlugin = () => {
             slotId: GovernanceSlotId.GOVERNANCE_PROCESS_PROPOSAL_SUCCEEDED,
             pluginId: crispPlugin.id,
             function: crispProposalUtils.hasSucceeded,
-        })
-        // Reads the tally and the round state on-chain, as the status functions are synchronous
-        .registerSlotFunction({
-            slotId: GovernanceSlotId.GOVERNANCE_RESOLVE_PROPOSAL,
-            pluginId: crispPlugin.id,
-            function: crispProposalResolverUtils.resolveProposal,
         })
         .registerSlotComponent({
             slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_SETTINGS_FORM,

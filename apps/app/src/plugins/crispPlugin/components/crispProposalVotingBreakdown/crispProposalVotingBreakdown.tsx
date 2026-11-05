@@ -38,8 +38,7 @@ export const CrispProposalVotingBreakdown: React.FC<
 
     const { t } = useTranslations();
 
-    // The tally and the quorum denominator live on the CrispVoting plugin rather than in the
-    // indexed proposal, so they are resolved on-chain here.
+    // The backend indexes the round while it goes, the proposal is polled until it is settled.
     const { proposal } = useCrispProposal({ proposal: proposalEnvelope });
 
     const { symbol, decimals } = proposal.settings.token;

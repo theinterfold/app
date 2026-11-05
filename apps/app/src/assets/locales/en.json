@@ -2856,6 +2856,7 @@
             "serverRejected": "The CRISP server rejected the request (HTTP {{status}}).",
             "serverTimeout": "The CRISP server timed out. Try again.",
             "serverUnavailable": "The CRISP server is temporarily unavailable. Try again shortly.",
+            "slotHeadUnavailable": "The ballot currently in this slot could not be read from the chain and the CRISP availability store, so the new ballot cannot be built on it. Try again shortly.",
             "slotNotEligible": "Your address has no voting power in this round.",
             "smartContractSignature": "This wallet signed with a smart-contract signature (for example a Safe), which encrypted ballots do not support yet. Vote from a wallet with its own key.",
             "tooManyMaskMembers": "This body has more than {{max}} members, which is too many to pick a mask target from.",

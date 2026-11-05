@@ -18,7 +18,8 @@ export interface ICrispProposal extends Omit<ITokenProposal, 'settings'> {
      */
     isTallyPublished: boolean;
     /**
-     * Raw token units that one tally count stands for. Undefined until read from the CRISP program.
+     * Raw token units that one tally count stands for. Undefined until the backend has read it from
+     * the CRISP program of the round.
      */
     votingPowerDivisor?: string;
     /**

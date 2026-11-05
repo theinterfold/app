@@ -2,19 +2,6 @@ import { VoteOption } from '@/plugins/tokenPlugin/types';
 import { crispVoteUtils } from './crispVoteUtils';
 
 describe('crispVote utils', () => {
-    describe('toVoteOption', () => {
-        it('maps the positional CRISP options onto the Aragon vote options', () => {
-            expect(crispVoteUtils.toVoteOption(0)).toEqual(VoteOption.YES);
-            expect(crispVoteUtils.toVoteOption(1)).toEqual(VoteOption.NO);
-            expect(crispVoteUtils.toVoteOption(2)).toEqual(VoteOption.ABSTAIN);
-        });
-
-        it('returns undefined for an index outside the three options', () => {
-            expect(crispVoteUtils.toVoteOption(3)).toBeUndefined();
-            expect(crispVoteUtils.toVoteOption(-1)).toBeUndefined();
-        });
-    });
-
     describe('buildBallot', () => {
         it('places the weight on the CRISP position of the chosen option and zero on the others', () => {
             expect(
