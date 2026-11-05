@@ -22,9 +22,10 @@ export interface ICrispCreateProposalSettingsFormProps {
     plugin: IDaoPlugin<ICrispPluginSettings>;
 }
 
-// Form field carrying the fee credit check, to block the wizard when the credit is insufficient
-interface ICrispFeeCreditForm {
-    crispFeeCredit?: boolean;
+// Form field carrying the fee quote check, to block the wizard when the fee cannot be quoted. A
+// credit that falls short does not block: the publish dialog deposits the shortfall first.
+interface ICrispFeeQuoteForm {
+    crispFeeQuote?: boolean;
 }
 
 export const CrispCreateProposalSettingsForm: React.FC<
@@ -72,32 +73,20 @@ export const CrispCreateProposalSettingsForm: React.FC<
         }
     }, [dateValues]);
 
-    const { hasSufficientCredit, isLoading, quoteError } = useCrispFeeCredits({
+    const { isLoading, quoteError } = useCrispFeeCredits({
         pluginAddress: plugin.address,
         network: plugin.settings.token.network,
         quoteCalls,
     });
 
-    useFormField<ICrispFeeCreditForm, 'crispFeeCredit'>('crispFeeCredit', {
+    useFormField<ICrispFeeQuoteForm, 'crispFeeQuote'>('crispFeeQuote', {
         defaultValue: false,
         rules: {
-            // A quote that reverts blocks like a known shortfall, as the proposal would revert too
-            validate: () => {
-                if (isLoading) {
-                    return true;
-                }
-
-                if (quoteError != null) {
-                    return t(
-                        'app.plugins.crisp.crispProposalFeeCredit.error.quote',
-                    );
-                }
-
-                return (
-                    hasSufficientCredit ||
-                    t('app.plugins.crisp.crispProposalFeeCredit.shortfall')
-                );
-            },
+            // A quote that reverts blocks, as the proposal would revert too
+            validate: () =>
+                isLoading ||
+                quoteError == null ||
+                t('app.plugins.crisp.crispProposalFeeCredit.error.quote'),
         },
     });
 

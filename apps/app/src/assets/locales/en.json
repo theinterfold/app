@@ -2656,8 +2656,15 @@
         "crispCreateProposalPrerequisiteSteps": {
           "step": {
             "DEPOSIT_FEE": {
-              "errorLabel": "Credit not added",
-              "label": "Add proposal fee credit"
+              "errorLabel": {
+                "balance": "Not enough {{symbol}} in your wallet",
+                "rejected": "Deposit cancelled in your wallet",
+                "transaction": "Credit not added",
+                "unavailable": "Fee or credit could not be read",
+                "unconfirmed": "Deposit sent but not confirmed, check your wallet"
+              },
+              "label": "Add {{amount}} fee credit",
+              "labelUnknownAmount": "Add proposal fee credit"
             }
           }
         },
@@ -2672,20 +2679,14 @@
         },
         "crispProposalFeeCredit": {
           "buttons": {
-            "deposit": "Add credit",
             "withdraw": "Withdraw credit"
           },
           "credit": "Your credit",
+          "deposit": "Your credit does not cover this fee. Publishing first adds {{amount}} to your credit, in the same dialog. Credit left over can be withdrawn.",
           "error": {
-            "balance": "Your wallet does not hold enough {{symbol}} to add the credit this proposal needs.",
-            "deposit": "The credit could not be added. Nothing was deposited.",
-            "quote": "The private computation fee could not be quoted for this process. Proposals cannot be created until this is resolved.",
-            "rejected": "The deposit was cancelled in your wallet. Nothing was deposited.",
-            "unavailable": "The fee, your credit or your balance could not be read. Reload the page and try again.",
-            "unconfirmed": "The deposit was sent but could not be confirmed. Check the transaction in your wallet before adding credit again."
+            "quote": "The private computation fee could not be quoted for this process. Proposals cannot be created until this is resolved."
           },
-          "fee": "Private computation fee",
-          "shortfall": "Your credit does not cover this proposal's fee. Add credit to continue."
+          "fee": "Private computation fee"
         },
         "crispGovernanceSettings": {
           "approvalThreshold": "Support threshold",

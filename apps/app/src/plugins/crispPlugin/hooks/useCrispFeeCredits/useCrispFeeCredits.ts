@@ -34,7 +34,6 @@ export const useCrispFeeCredits = (
 
     const pluginAddress = params.pluginAddress as Hex;
 
-    const [isDepositing, setIsDepositing] = useState(false);
     const [depositFailure, setDepositFailure] = useState<CrispDepositFailure>();
 
     const { data: feeToken, isLoading: isFeeTokenLoading } = useReadContract({
@@ -128,7 +127,6 @@ export const useCrispFeeCredits = (
             return true;
         }
 
-        setIsDepositing(true);
         let depositHash: Hex | undefined;
 
         try {
@@ -209,8 +207,6 @@ export const useCrispFeeCredits = (
             }
 
             return fail('transaction');
-        } finally {
-            setIsDepositing(false);
         }
     }, [
         quote,
@@ -230,8 +226,11 @@ export const useCrispFeeCredits = (
         decimals: token?.decimals,
         symbol: token?.symbol,
         hasSufficientCredit: crispFeeUtils.hasSufficientCredit(quote, credit),
+        depositAmount:
+            quote == null || credit == null
+                ? undefined
+                : crispFeeUtils.depositAmount(quote, credit),
         depositShortfall,
-        isDepositing,
         isLoading:
             isFeeTokenLoading ||
             isTokenLoading ||

@@ -1,14 +1,7 @@
 'use client';
 
-import {
-    AlertInline,
-    Button,
-    Card,
-    DefinitionList,
-    formatterUtils,
-    NumberFormat,
-} from '@aragon/gov-ui-kit';
-import { formatUnits, type Hex } from 'viem';
+import { AlertInline, Button, Card, DefinitionList } from '@aragon/gov-ui-kit';
+import type { Hex } from 'viem';
 import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
 import type { IDaoPlugin } from '@/shared/api/daoService';
 import { useDialogContext } from '@/shared/components/dialogProvider';
@@ -17,7 +10,7 @@ import { CrispPluginDialogId } from '../../constants/crispPluginDialogId';
 import type { ICrispWithdrawCreditDialogParams } from '../../dialogs/crispWithdrawCreditDialog';
 import { useCrispFeeCredits } from '../../hooks/useCrispFeeCredits';
 import type { ICrispPluginSettings } from '../../types';
-import type { ICrispQuoteCall } from '../../utils/crispFeeUtils';
+import { crispFeeUtils, type ICrispQuoteCall } from '../../utils/crispFeeUtils';
 
 export interface ICrispProposalFeeCreditProps {
     /**
@@ -31,8 +24,9 @@ export interface ICrispProposalFeeCreditProps {
 }
 
 /**
- * Displays the E3 fee of a CRISP proposal and the fee credit of the creator on the plugin, and
- * lets them top it up or withdraw it.
+ * Displays the E3 fee of a CRISP proposal and the fee credit of the creator on the plugin, the
+ * amount the publish dialog deposits when the credit falls short, and lets the creator withdraw
+ * their credit.
  */
 export const CrispProposalFeeCredit: React.FC<ICrispProposalFeeCreditProps> = (
     props,
@@ -51,11 +45,9 @@ export const CrispProposalFeeCredit: React.FC<ICrispProposalFeeCreditProps> = (
         decimals,
         symbol,
         hasSufficientCredit,
-        depositShortfall,
-        isDepositing,
+        depositAmount,
         isLoading,
         quoteError,
-        depositFailure,
         refetchCredit,
     } = useCrispFeeCredits({
         pluginAddress: plugin.address,
@@ -64,14 +56,7 @@ export const CrispProposalFeeCredit: React.FC<ICrispProposalFeeCreditProps> = (
     });
 
     const format = (value?: bigint) =>
-        value == null || decimals == null
-            ? '-'
-            : (formatterUtils.formatNumber(formatUnits(value, decimals), {
-                  format: NumberFormat.TOKEN_AMOUNT_SHORT,
-              }) ?? '-');
-
-    const withSymbol = (value?: bigint) =>
-        `${format(value)} ${symbol ?? ''}`.trim();
+        crispFeeUtils.formatAmount(value, decimals, symbol);
 
     const handleWithdraw = (
         amount: bigint,
@@ -106,35 +91,28 @@ export const CrispProposalFeeCredit: React.FC<ICrispProposalFeeCreditProps> = (
                 <DefinitionList.Item
                     term={t('app.plugins.crisp.crispProposalFeeCredit.fee')}
                 >
-                    {isLoading ? '-' : withSymbol(quote)}
+                    {isLoading ? '-' : format(quote)}
                 </DefinitionList.Item>
                 <DefinitionList.Item
                     term={t('app.plugins.crisp.crispProposalFeeCredit.credit')}
                 >
-                    {address == null || isLoading ? '-' : withSymbol(credit)}
+                    {address == null || isLoading ? '-' : format(credit)}
                 </DefinitionList.Item>
             </DefinitionList.Container>
 
-            {address != null && !isLoading && !hasSufficientCredit && (
-                <>
+            {address != null &&
+                !isLoading &&
+                !hasSufficientCredit &&
+                depositAmount != null &&
+                depositAmount > BigInt(0) && (
                     <AlertInline
                         message={t(
-                            'app.plugins.crisp.crispProposalFeeCredit.shortfall',
+                            'app.plugins.crisp.crispProposalFeeCredit.deposit',
+                            { amount: format(depositAmount) },
                         )}
-                        variant="warning"
+                        variant="info"
                     />
-                    <Button
-                        className="w-fit"
-                        isLoading={isDepositing}
-                        onClick={() => void depositShortfall()}
-                        size="md"
-                    >
-                        {t(
-                            'app.plugins.crisp.crispProposalFeeCredit.buttons.deposit',
-                        )}
-                    </Button>
-                </>
-            )}
+                )}
 
             {address != null &&
                 !isLoading &&
@@ -153,16 +131,6 @@ export const CrispProposalFeeCredit: React.FC<ICrispProposalFeeCreditProps> = (
                         )}
                     </Button>
                 )}
-
-            {depositFailure != null && (
-                <AlertInline
-                    message={t(
-                        `app.plugins.crisp.crispProposalFeeCredit.error.${depositFailure === 'transaction' ? 'deposit' : depositFailure}`,
-                        { symbol },
-                    )}
-                    variant="critical"
-                />
-            )}
         </Card>
     );
 };
