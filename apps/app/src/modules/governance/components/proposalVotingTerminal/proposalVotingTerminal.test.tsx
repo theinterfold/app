@@ -75,12 +75,15 @@ describe('<ProposalVotingTerminal /> component', () => {
             pluginInterfaceType: PluginInterfaceType.MULTISIG,
         });
         render(createTestComponent({ proposal }));
-        const pluginComponent = screen.getAllByTestId('plugin-component-mock');
-        expect(pluginComponent[0]).toBeInTheDocument();
-        expect(pluginComponent[0].dataset.slotid).toEqual(
-            GovernanceSlotId.GOVERNANCE_PROPOSAL_VOTING_BREAKDOWN,
-        );
-        expect(pluginComponent[0].dataset.pluginid).toEqual(
+        const breakdown = screen
+            .getAllByTestId('plugin-component-mock')
+            .find(
+                (component) =>
+                    component.dataset.slotid ===
+                    GovernanceSlotId.GOVERNANCE_PROPOSAL_VOTING_BREAKDOWN,
+            );
+        expect(breakdown).toBeInTheDocument();
+        expect(breakdown?.dataset.pluginid).toEqual(
             proposal.pluginInterfaceType,
         );
     });
@@ -89,6 +92,21 @@ describe('<ProposalVotingTerminal /> component', () => {
         render(createTestComponent({ status: ProposalStatus.ACTIVE }));
         await userEvent.click(screen.getByRole('tab', { name: 'Votes' }));
         expect(screen.getByTestId('vote-list-mock')).toBeInTheDocument();
+    });
+
+    it('opens the votes of a pending proposal whose vote has started, such as a closed vote whose tally is still computed', async () => {
+        const startDate = Math.floor(Date.now() / 1000) - 60;
+        const proposal = generateProposal({ startDate });
+        render(createTestComponent({ proposal }));
+        await userEvent.click(screen.getByRole('tab', { name: 'Votes' }));
+        expect(screen.getByTestId('vote-list-mock')).toBeInTheDocument();
+    });
+
+    it('keeps the votes of a pending proposal closed until its vote starts', () => {
+        const startDate = Math.floor(Date.now() / 1000) + 30 * 60;
+        const proposal = generateProposal({ startDate });
+        render(createTestComponent({ proposal }));
+        expect(screen.getByRole('tab', { name: 'Votes' })).toBeDisabled();
     });
 
     it('tells when voting opens while a pending proposal has not started', () => {
@@ -109,7 +127,7 @@ describe('<ProposalVotingTerminal /> component', () => {
         ).not.toBeInTheDocument();
     });
 
-    it('renders the plugin info and proposal settings', () => {
+    it('renders the plugin info and proposal settings', async () => {
         const daoId = 'test-id';
         const settings = generatePluginSettings();
         const parsedSettings = {
@@ -125,6 +143,7 @@ describe('<ProposalVotingTerminal /> component', () => {
         useDaoPluginInfoSpy.mockImplementation((params) => params.settings!);
 
         render(createTestComponent({ daoId, proposal }));
+        await userEvent.click(screen.getByRole('tab', { name: 'Settings' }));
         expect(useDaoPluginInfoSpy).toHaveBeenCalled();
         const expectedParams = {
             daoId,
