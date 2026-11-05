@@ -266,8 +266,11 @@ class CrispBallotUtils {
     };
 
     /**
-     * Requires the receipt to be a success that holds the `InputCommitted` event of the CRISP
-     * program for the round, the slot and the ciphertext commitment of the voter's ballot.
+     * Requires the receipt to be a success that holds an event of the CRISP program for the round,
+     * the slot and the ciphertext commitment of the voter's ballot: `InputCommitted` from the
+     * commitment, or `InputPublished` from the publication that follows it. The server reports the
+     * publication once it is sent, and `finalizeInput` only publishes an input that the program
+     * committed with the same slot and commitment.
      *
      * @throws When the transaction reverted or committed something else.
      */
@@ -286,7 +289,7 @@ class CrispBallotUtils {
 
         const isCommitted = parseEventLogs({
             abi: crispProgramAbi,
-            eventName: 'InputCommitted',
+            eventName: ['InputCommitted', 'InputPublished'],
             logs: receipt.logs,
         }).some(
             ({ address, args }) =>

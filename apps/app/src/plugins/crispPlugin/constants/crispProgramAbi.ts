@@ -59,6 +59,28 @@ export const crispProgramAbi = [
         ],
     },
     {
+        type: 'event',
+        name: 'InputPublished',
+        inputs: [
+            { name: 'e3Id', type: 'uint256', indexed: true },
+            { name: 'slotAddress', type: 'address', indexed: true },
+            {
+                name: 'encryptedVoteCommitment',
+                type: 'bytes32',
+                indexed: false,
+            },
+            { name: 'encryptedVoteHash', type: 'bytes32', indexed: false },
+            { name: 'availabilityBlock', type: 'uint32', indexed: false },
+            {
+                name: 'availabilityLeafIndex',
+                type: 'uint128',
+                indexed: false,
+            },
+            { name: 'index', type: 'uint256', indexed: false },
+            { name: 'parentIndexPlusOne', type: 'uint40', indexed: false },
+        ],
+    },
+    {
         type: 'function',
         inputs: [{ name: 'e3Id', type: 'uint256' }],
         name: 'votingPowerDivisorOf',

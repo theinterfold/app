@@ -18,6 +18,7 @@ import {
     generateCrispCommitLog,
     generateCrispCommitReceipt,
     generateCrispInputIdentity,
+    generateCrispPublishLog,
 } from '../../testUtils';
 import { crispBallotUtils } from './crispBallotUtils';
 
@@ -27,6 +28,7 @@ const defaultE3Id = BigInt(7);
 const identity = generateCrispInputIdentity();
 const buildAttestedPayload = generateCrispAttestedPayload;
 const buildLog = generateCrispCommitLog;
+const buildPublishLog = generateCrispPublishLog;
 const buildReceipt = generateCrispCommitReceipt;
 
 const generateVoteResponse = (
@@ -461,6 +463,25 @@ describe('crispBallot utils', () => {
 
         it('accepts a receipt with the commitment of the ballot in the round and slot', () => {
             expect(() => assert(buildReceipt([buildLog()]))).not.toThrow();
+        });
+
+        it('accepts the publication of the ballot, which the server reports once it is sent', () => {
+            expect(() =>
+                assert(buildReceipt([buildPublishLog()])),
+            ).not.toThrow();
+        });
+
+        it('refuses a publication of another ciphertext commitment', () => {
+            const log = buildPublishLog({
+                encryptedVoteCommitment: `0x${'33'.repeat(32)}` as Hex,
+            });
+
+            expect(() => assert(buildReceipt([log]))).toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.commitmentNotFound',
+                }),
+            );
         });
 
         it('refuses a reverted transaction', () => {

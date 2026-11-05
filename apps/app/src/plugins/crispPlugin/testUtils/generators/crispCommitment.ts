@@ -87,6 +87,44 @@ export const generateCrispCommitLog = (
     };
 };
 
+/**
+ * `InputPublished` log of the publication that follows a commitment, which is the transaction the
+ * server reports once the ballot is published.
+ */
+export const generateCrispPublishLog = (
+    params?: IGenerateCrispCommitLogParams,
+): ICrispCommitLog => {
+    const { address, e3Id, ...identity } = params ?? {};
+    const {
+        slotAddress,
+        encryptedVoteCommitment,
+        encryptedVoteHash,
+        parentIndexPlusOne,
+    } = generateCrispInputIdentity(identity);
+
+    return {
+        address: address ?? '0x00000000000000000000000000000000000000b2',
+        topics: encodeEventTopics({
+            abi: crispProgramAbi,
+            eventName: 'InputPublished',
+            args: { e3Id: e3Id ?? BigInt(7), slotAddress },
+        }) as Hex[],
+        data: encodeAbiParameters(
+            parseAbiParameters(
+                'bytes32, bytes32, uint32, uint128, uint256, uint40',
+            ),
+            [
+                encryptedVoteCommitment,
+                encryptedVoteHash,
+                0,
+                BigInt(0),
+                BigInt(4),
+                parentIndexPlusOne,
+            ],
+        ),
+    };
+};
+
 export const generateCrispCommitReceipt = (
     logs: ICrispCommitLog[],
     status: 'success' | 'reverted' = 'success',
