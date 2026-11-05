@@ -1,21 +1,19 @@
 'use client';
 
-import { addressUtils } from '@aragon/gov-ui-kit';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
     ICreateProposalPrerequisiteStepsParams,
     ICreateProposalPrerequisiteStepsResult,
 } from '@/modules/governance/types';
-import type { ISppPluginSettings } from '@/plugins/sppPlugin/types';
 import type { IDaoPlugin } from '@/shared/api/daoService';
 import type { ITransactionDialogActionParams } from '@/shared/components/transactionDialog';
 import type { TransactionStatusState } from '@/shared/components/transactionStatus';
 import { useTranslations } from '@/shared/components/translationsProvider';
-import { useDaoPlugins } from '@/shared/hooks/useDaoPlugins';
 import type { ICrispPluginSettings } from '../../types';
 import { crispFeeUtils } from '../../utils/crispFeeUtils';
 import type { ICreateCrispProposalFormData } from '../../utils/crispTransactionUtils';
 import { useCrispFeeCredits } from '../useCrispFeeCredits';
+import { useCrispStageDurations } from '../useCrispStageDurations';
 
 enum CrispCreateProposalStep {
     DEPOSIT_FEE = 'DEPOSIT_FEE',
@@ -39,41 +37,10 @@ export const useCrispCreateProposalPrerequisiteSteps = (
     const crispPlugin = plugin as IDaoPlugin<ICrispPluginSettings>;
     const proposalForm = proposal as ICreateCrispProposalFormData;
 
-    // The proposal of a staged process is created with the voting window of the stage, so its
-    // fee is quoted for it and not for the dates of the form
-    const { parentPlugin } = crispPlugin;
-    const parentPlugins = useDaoPlugins({
+    const { stageDurations, areStagesResolved } = useCrispStageDurations({
         daoId,
-        includeLinkedAccounts: true,
-        pluginAddress: parentPlugin,
+        plugin: crispPlugin,
     });
-    const parentStages =
-        parentPlugin != null
-            ? (
-                  parentPlugins?.[0]?.meta as
-                      | IDaoPlugin<ISppPluginSettings>
-                      | undefined
-              )?.settings.stages
-            : undefined;
-
-    // Every stage the plugin is a body of
-    const stageDurations = useMemo(
-        () =>
-            (parentStages ?? [])
-                .filter((stage) =>
-                    stage.plugins.some((body) =>
-                        addressUtils.isAddressEqual(
-                            body.address,
-                            crispPlugin.address,
-                        ),
-                    ),
-                )
-                .map((stage) => stage.voteDuration),
-        [parentStages, crispPlugin.address],
-    );
-
-    // A body whose parent has not loaded yet would be quoted as a direct proposal
-    const areStagesResolved = parentPlugin == null || parentStages != null;
 
     // Read once to keep the quote calls stable
     const [now] = useState(() => Math.floor(Date.now() / 1000));
