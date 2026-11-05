@@ -140,15 +140,6 @@ describe('SppStageUtils', () => {
             ).toEqual(startDate.toSeconds() + 3600);
         });
 
-        it('counts down to the max advance date once the voting window has closed', () => {
-            timeUtils.setTime('2022-02-10T09:10:00.000Z');
-            expect(
-                sppStageUtils
-                    .getStageCountdownEnd(proposal, stage)
-                    ?.toSeconds(),
-            ).toEqual(startDate.toSeconds() + 86_400);
-        });
-
         it('counts down to a body vote that is still open past the voting window', () => {
             timeUtils.setTime('2022-02-10T09:10:00.000Z');
             const bodyEnd = startDate.toSeconds() + 6000;
@@ -168,22 +159,55 @@ describe('SppStageUtils', () => {
                     ?.toSeconds(),
             ).toEqual(bodyEnd);
         });
+    });
 
-        it('counts down to the max advance date once the body votes have ended', () => {
-            timeUtils.setTime('2022-02-10T09:50:00.000Z');
-            const endedBodyProposal = generateSppProposal({
+    describe('isAwaitingLateResult', () => {
+        const startDate = DateTime.fromISO('2022-02-10T08:00:00.000Z');
+        const stage = generateSppStage({
+            voteDuration: 3600,
+            maxAdvance: 86_400,
+            plugins: [generateSppStagePlugin()],
+        });
+        const buildProposal = (bodyEnd: number) =>
+            generateSppProposal({
                 startDate: startDate.toSeconds(),
-                subProposals: [
-                    generateSppSubProposal({
-                        endDate: startDate.toSeconds() + 5400,
-                    }),
-                ],
+                settings: generateSppPluginSettings({ stages: [stage] }),
+                subProposals: [generateSppSubProposal({ endDate: bodyEnd })],
             });
+
+        it('is true once the window and body votes are over while a body reports its result late', () => {
+            timeUtils.setTime('2022-02-10T09:50:00.000Z');
+            getSlotFunctionSpy.mockReturnValue(() => true);
+
             expect(
-                sppStageUtils
-                    .getStageCountdownEnd(endedBodyProposal, stage)
-                    ?.toSeconds(),
-            ).toEqual(startDate.toSeconds() + 86_400);
+                sppStageUtils.isAwaitingLateResult(
+                    buildProposal(startDate.toSeconds() + 3600),
+                    stage,
+                ),
+            ).toBe(true);
+        });
+
+        it('is false while a body vote is still open past the window', () => {
+            timeUtils.setTime('2022-02-10T09:10:00.000Z');
+            getSlotFunctionSpy.mockReturnValue(() => true);
+
+            expect(
+                sppStageUtils.isAwaitingLateResult(
+                    buildProposal(startDate.toSeconds() + 6000),
+                    stage,
+                ),
+            ).toBe(false);
+        });
+
+        it('is false once the votes are over when no body reports its result late', () => {
+            timeUtils.setTime('2022-02-10T09:50:00.000Z');
+
+            expect(
+                sppStageUtils.isAwaitingLateResult(
+                    buildProposal(startDate.toSeconds() + 3600),
+                    stage,
+                ),
+            ).toBe(false);
         });
     });
 
