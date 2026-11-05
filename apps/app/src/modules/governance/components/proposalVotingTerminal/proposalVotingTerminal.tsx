@@ -1,5 +1,8 @@
 import {
+    AlertInline,
     addressUtils,
+    DateFormat,
+    formatterUtils,
     type IDefinitionSetting,
     ProposalStatus,
     ProposalVoting,
@@ -9,6 +12,7 @@ import { useEnsName } from '@/modules/ens';
 import { SettingsSlotId } from '@/modules/settings/constants/moduleSlots';
 import type { IUseGovernanceSettingsParams } from '@/modules/settings/types';
 import { PluginSingleComponent } from '@/shared/components/pluginSingleComponent';
+import { useTranslations } from '@/shared/components/translationsProvider';
 import { useDaoPluginInfo } from '@/shared/hooks/useDaoPluginInfo';
 import { useSlotSingleFunction } from '@/shared/hooks/useSlotSingleFunction';
 import { daoUtils } from '@/shared/utils/daoUtils';
@@ -38,6 +42,7 @@ export const ProposalVotingTerminal: React.FC<IProposalVotingTerminalProps> = (
 ) => {
     const { proposal, status, daoId } = props;
 
+    const { t } = useTranslations();
     const { address } = useWalletAccount();
     const { data: pluginEnsName } = useEnsName(proposal.pluginAddress);
 
@@ -73,11 +78,30 @@ export const ProposalVotingTerminal: React.FC<IProposalVotingTerminalProps> = (
     const pluginName =
         pluginEnsName ?? addressUtils.truncateAddress(proposal.pluginAddress);
 
+    // A pending proposal can open some time after it is created, which its status alone does not tell
+    const isAwaitingStart =
+        status === ProposalStatus.PENDING &&
+        proposal.startDate * 1000 > Date.now();
+
     return (
         <ProposalVoting.Container
             endDate={proposal.endDate * 1000}
             status={status}
         >
+            {isAwaitingStart && (
+                <AlertInline
+                    message={t(
+                        'app.governance.proposalVotingTerminal.votingStarts',
+                        {
+                            date: formatterUtils.formatDate(
+                                proposal.startDate * 1000,
+                                { format: DateFormat.YEAR_MONTH_DAY_TIME },
+                            ),
+                        },
+                    )}
+                    variant="info"
+                />
+            )}
             <ProposalVoting.BodyContent name={pluginName} status={status}>
                 <PluginSingleComponent
                     pluginId={proposal.pluginInterfaceType}

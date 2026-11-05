@@ -91,6 +91,24 @@ describe('<ProposalVotingTerminal /> component', () => {
         expect(screen.getByTestId('vote-list-mock')).toBeInTheDocument();
     });
 
+    it('tells when voting opens while a pending proposal has not started', () => {
+        const startDate = Math.floor(Date.now() / 1000) + 30 * 60;
+        const proposal = generateProposal({ startDate });
+        render(createTestComponent({ proposal }));
+        expect(
+            screen.getByText(/proposalVotingTerminal.votingStarts/),
+        ).toBeInTheDocument();
+    });
+
+    it('does not tell when voting opens once the start date has passed', () => {
+        const startDate = Math.floor(Date.now() / 1000) - 60;
+        const proposal = generateProposal({ startDate });
+        render(createTestComponent({ proposal }));
+        expect(
+            screen.queryByText(/proposalVotingTerminal.votingStarts/),
+        ).not.toBeInTheDocument();
+    });
+
     it('renders the plugin info and proposal settings', () => {
         const daoId = 'test-id';
         const settings = generatePluginSettings();

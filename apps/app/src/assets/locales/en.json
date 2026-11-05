@@ -2408,6 +2408,9 @@
         "missing": "Proposal metadata is missing",
         "nonStandard": "Unexpected proposal metadata format"
       },
+      "proposalVotingTerminal": {
+        "votingStarts": "Voting opens {{date}}"
+      },
       "publishProposalDialog": {
         "button": {
           "submit": "Publish proposal",
