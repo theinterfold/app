@@ -83,6 +83,13 @@ export const ProposalVotingTerminal: React.FC<IProposalVotingTerminalProps> = (
         status === ProposalStatus.PENDING &&
         proposal.startDate * 1000 > Date.now();
 
+    // The tabs open the breakdown and votes only once the vote has started, which they read from the
+    // status. A vote that closed with its tally still computed reads pending too, yet its votes are cast
+    const tabsStatus =
+        status === ProposalStatus.PENDING && !isAwaitingStart
+            ? ProposalStatus.ACTIVE
+            : status;
+
     return (
         <ProposalVoting.Container
             endDate={proposal.endDate * 1000}
@@ -102,7 +109,7 @@ export const ProposalVotingTerminal: React.FC<IProposalVotingTerminalProps> = (
                     variant="info"
                 />
             )}
-            <ProposalVoting.BodyContent name={pluginName} status={status}>
+            <ProposalVoting.BodyContent name={pluginName} status={tabsStatus}>
                 <PluginSingleComponent
                     pluginId={proposal.pluginInterfaceType}
                     proposal={proposal}
