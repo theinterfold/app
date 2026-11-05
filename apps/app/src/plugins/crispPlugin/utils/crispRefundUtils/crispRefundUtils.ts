@@ -2,11 +2,14 @@ import type { Hex } from 'viem';
 import { readContract } from 'wagmi/actions';
 import { wagmiConfig } from '@/modules/application/constants/wagmi';
 import {
-    crispE3StageFailed,
     crispInterfoldAbi,
     crispRefundManagerAbi,
 } from '../../constants/crispInterfoldAbi';
-import type { CrispE3FailureReason } from '../../types';
+import {
+    type CrispE3FailureReason,
+    CrispE3Stage,
+    type ICrispProposal,
+} from '../../types';
 import { crispPluginAbi } from '../crispTransactionUtils/crispPluginAbi';
 
 // Transactions leading from a failed round to a refunded credit, in order
@@ -22,9 +25,14 @@ export interface ICrispRefundState {
      */
     interfold: Hex;
     /**
-     * `IInterfold.E3Stage` of the round.
+     * Stage of the round.
      */
-    stage: number;
+    stage: CrispE3Stage;
+    /**
+     * Seconds after a missed deadline during which only the requester, the coordinator owner and
+     * the committee may mark the round failed.
+     */
+    markFailedGracePeriod: number;
     /**
      * Whether the refund manager has calculated the refund of the round.
      */
@@ -98,21 +106,29 @@ class CrispRefundUtils {
             }),
         ]);
 
-        const [stage, refundManager] = await Promise.all([
-            readContract(wagmiConfig, {
-                chainId,
-                address: interfold,
-                abi: crispInterfoldAbi,
-                functionName: 'getE3Stage',
-                args: [e3Id],
-            }),
-            readContract(wagmiConfig, {
-                chainId,
-                address: interfold,
-                abi: crispInterfoldAbi,
-                functionName: 'e3RefundManager',
-            }),
-        ]);
+        const [stage, refundManager, markFailedGracePeriod] = await Promise.all(
+            [
+                readContract(wagmiConfig, {
+                    chainId,
+                    address: interfold,
+                    abi: crispInterfoldAbi,
+                    functionName: 'getE3Stage',
+                    args: [e3Id],
+                }),
+                readContract(wagmiConfig, {
+                    chainId,
+                    address: interfold,
+                    abi: crispInterfoldAbi,
+                    functionName: 'e3RefundManager',
+                }),
+                readContract(wagmiConfig, {
+                    chainId,
+                    address: interfold,
+                    abi: crispInterfoldAbi,
+                    functionName: 'markFailedGracePeriod',
+                }),
+            ],
+        );
 
         const [distribution, isClaimed] = await Promise.all([
             readContract(wagmiConfig, {
@@ -135,6 +151,7 @@ class CrispRefundUtils {
             payer,
             interfold,
             stage,
+            markFailedGracePeriod: Number(markFailedGracePeriod),
             isCalculated: distribution.calculated,
             amount: distribution.requesterAmount,
             isClaimed,
@@ -149,7 +166,7 @@ class CrispRefundUtils {
             return undefined;
         }
 
-        if (stage !== crispE3StageFailed) {
+        if (stage !== CrispE3Stage.FAILED) {
             return 'markFailed';
         }
 
@@ -159,6 +176,17 @@ class CrispRefundUtils {
 
         return amount > BigInt(0) ? 'claim' : undefined;
     };
+
+    // When anyone may mark the round failed, in milliseconds: the coordinator reserves the grace
+    // period after the missed deadline to the requester, its owner and the committee. Undefined
+    // when the backend has not read the deadline, the call is then left to the coordinator.
+    getMarkFailedStart = (
+        proposal: ICrispProposal,
+        state: ICrispRefundState,
+    ): number | undefined =>
+        proposal.e3StageDeadline == null
+            ? undefined
+            : (proposal.e3StageDeadline + state.markFailedGracePeriod) * 1000;
 }
 
 export const crispRefundUtils = new CrispRefundUtils();

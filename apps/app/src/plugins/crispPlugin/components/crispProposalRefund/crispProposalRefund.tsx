@@ -1,6 +1,6 @@
 'use client';
 
-import { EmptyState } from '@aragon/gov-ui-kit';
+import { DateFormat, EmptyState, formatterUtils } from '@aragon/gov-ui-kit';
 import { formatUnits, type Hex } from 'viem';
 import { useDialogContext } from '@/shared/components/dialogProvider';
 import { useTranslations } from '@/shared/components/translationsProvider';
@@ -11,6 +11,7 @@ import { useCrispFeeCredits } from '../../hooks/useCrispFeeCredits';
 import { useCrispRefund } from '../../hooks/useCrispRefund';
 import { CrispE3FailureReason, type ICrispProposal } from '../../types';
 import { crispProposalUtils } from '../../utils/crispProposalUtils';
+import { crispRefundUtils } from '../../utils/crispRefundUtils';
 
 export interface ICrispProposalRefundProps {
     /**
@@ -41,6 +42,15 @@ export const CrispProposalRefund: React.FC<ICrispProposalRefundProps> = (
     const cause = crispProposalUtils.getFailureCause(
         proposal.failureReason ?? CrispE3FailureReason.NONE,
     );
+
+    // A round that missed its deadline is not marked failed by anyone else until the grace period ends
+    const markFailedStart =
+        step === 'markFailed' && state != null
+            ? crispRefundUtils.getMarkFailedStart(proposal, state)
+            : undefined;
+    const isAwaitingGrace =
+        markFailedStart != null && markFailedStart > Date.now();
+    const canRefund = isPayer && step != null && !isAwaitingGrace;
 
     const refresh = () => {
         void refetch();
@@ -85,6 +95,10 @@ export const CrispProposalRefund: React.FC<ICrispProposalRefundProps> = (
             return 'payer';
         }
 
+        if (isAwaitingGrace) {
+            return 'graceRunning';
+        }
+
         if (step != null) {
             return 'available';
         }
@@ -92,13 +106,24 @@ export const CrispProposalRefund: React.FC<ICrispProposalRefundProps> = (
         return state?.isClaimed ? 'claimed' : 'none';
     };
 
+    const refundText = t(
+        `app.plugins.crisp.crispProposalRefund.refund.${getRefundKey()}`,
+        isAwaitingGrace
+            ? {
+                  date: formatterUtils.formatDate(markFailedStart, {
+                      format: DateFormat.YEAR_MONTH_DAY_TIME,
+                  }),
+              }
+            : undefined,
+    );
+
     return (
         <EmptyState
-            description={`${t(`app.plugins.crisp.crispProposalRefund.cause.${cause}`)} ${t(`app.plugins.crisp.crispProposalRefund.refund.${getRefundKey()}`)}`}
+            description={`${t(`app.plugins.crisp.crispProposalRefund.cause.${cause}`)} ${refundText}`}
             heading={t('app.plugins.crisp.crispProposalRefund.heading')}
             objectIllustration={{ object: 'ERROR' }}
             primaryButton={
-                isPayer && step != null
+                canRefund
                     ? {
                           label: t(
                               `app.plugins.crisp.crispRefundDialog.${step}.submit`,
