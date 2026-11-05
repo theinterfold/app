@@ -26,6 +26,7 @@ export const CreateProposalFormSettings: React.FC<
 
     return (
         <PluginSingleComponent
+            daoId={daoId}
             plugin={daoPlugin.meta}
             pluginId={daoPlugin.id}
             slotId={GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_SETTINGS_FORM}

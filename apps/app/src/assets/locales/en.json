@@ -2653,6 +2653,9 @@
         "crispActions": {
           "UpdateCrispVoteSettings": "Update settings"
         },
+        "crispCreateProposalBodySettings": {
+          "title": "Private computation fee for {{name}}"
+        },
         "crispCreateProposalPrerequisiteSteps": {
           "step": {
             "DEPOSIT_FEE": {
