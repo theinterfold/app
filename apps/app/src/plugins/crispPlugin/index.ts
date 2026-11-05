@@ -5,6 +5,7 @@ import { pluginRegistryUtils } from '@/shared/utils/pluginRegistryUtils';
 import { TokenMemberList } from '../tokenPlugin/components/tokenMemberList';
 import { TokenMemberPanel } from '../tokenPlugin/components/tokenMemberPanel';
 import { useTokenMemberStats } from '../tokenPlugin/hooks/useTokenMemberStats';
+import { CrispCreateProposalBodySettings } from './components/crispCreateProposalBodySettings';
 import { CrispCreateProposalSettingsForm } from './components/crispCreateProposalSettingsForm';
 import { CrispProcessBodyField } from './components/crispProcessBodyField';
 import { CrispProposalCreationSettings } from './components/crispProposalCreationSettings';
@@ -71,6 +72,11 @@ export const initialiseCrispPlugin = () => {
             slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_SETTINGS_FORM,
             pluginId: crispPlugin.id,
             component: CrispCreateProposalSettingsForm,
+        })
+        .registerSlotComponent({
+            slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_BODY_SETTINGS,
+            pluginId: crispPlugin.id,
+            component: CrispCreateProposalBodySettings,
         })
         .registerSlotFunction({
             slotId: GovernanceSlotId.GOVERNANCE_BUILD_CREATE_PROPOSAL_DATA,

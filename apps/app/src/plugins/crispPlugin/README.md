@@ -74,7 +74,9 @@ the withdrawal of the fee credit, which the fee card of the creation wizard offe
 - The creator pays the E3 fee from a credit held on the plugin. The publish dialog adds a top-up
   step when the credit does not cover the quote (`useCrispCreateProposalPrerequisiteSteps`), for a
   proposal created directly and through a staged process alike. The step names the amount it
-  deposits, and the fee card of the creation wizard announces it beforehand.
+  deposits, and the creation wizard announces it beforehand: on the fee card of its settings step,
+  and for a staged process on a card per CRISP body, rendered by the process through the
+  `GOVERNANCE_CREATE_PROPOSAL_BODY_SETTINGS` slot.
   Quotes follow the window the contract derives: `quoteProposalFeeForDuration(stageDuration)` per
   stage of a staged process, otherwise `quoteProposalFee(startDate, endDate)` with the same dates
   `createProposal` is sent.

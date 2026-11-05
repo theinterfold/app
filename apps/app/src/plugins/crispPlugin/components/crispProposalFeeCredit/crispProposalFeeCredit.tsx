@@ -6,6 +6,7 @@ import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
 import type { IDaoPlugin } from '@/shared/api/daoService';
 import { useDialogContext } from '@/shared/components/dialogProvider';
 import { useTranslations } from '@/shared/components/translationsProvider';
+import { useFormField } from '@/shared/hooks/useFormField';
 import { CrispPluginDialogId } from '../../constants/crispPluginDialogId';
 import type { ICrispWithdrawCreditDialogParams } from '../../dialogs/crispWithdrawCreditDialog';
 import { useCrispFeeCredits } from '../../hooks/useCrispFeeCredits';
@@ -23,10 +24,17 @@ export interface ICrispProposalFeeCreditProps {
     quoteCalls: ICrispQuoteCall[];
 }
 
+// Form field carrying the fee quote check of each plugin, to block the wizard when the fee cannot
+// be quoted. A credit that falls short does not block: the publish dialog deposits the shortfall.
+interface ICrispFeeQuoteForm {
+    crispFeeQuote?: Record<string, boolean>;
+}
+
 /**
  * Displays the E3 fee of a CRISP proposal and the fee credit of the creator on the plugin, the
  * amount the publish dialog deposits when the credit falls short, and lets the creator withdraw
- * their credit.
+ * their credit. Blocks the wizard it is rendered in while the fee cannot be quoted, as the
+ * proposal would revert too.
  */
 export const CrispProposalFeeCredit: React.FC<ICrispProposalFeeCreditProps> = (
     props,
@@ -54,6 +62,19 @@ export const CrispProposalFeeCredit: React.FC<ICrispProposalFeeCreditProps> = (
         network,
         quoteCalls,
     });
+
+    useFormField<ICrispFeeQuoteForm, `crispFeeQuote.${string}`>(
+        `crispFeeQuote.${plugin.address.toLowerCase()}`,
+        {
+            defaultValue: false,
+            rules: {
+                validate: () =>
+                    isLoading ||
+                    quoteError == null ||
+                    t('app.plugins.crisp.crispProposalFeeCredit.error.quote'),
+            },
+        },
+    );
 
     const format = (value?: bigint) =>
         crispFeeUtils.formatAmount(value, decimals, symbol);
