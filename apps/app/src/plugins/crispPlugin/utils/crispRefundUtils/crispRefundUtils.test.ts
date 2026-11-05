@@ -1,4 +1,6 @@
+import * as wagmiActions from 'wagmi/actions';
 import { crispE3StageFailed } from '../../constants/crispInterfoldAbi';
+import { CrispE3FailureReason } from '../../types';
 import { crispRefundUtils, type ICrispRefundState } from './crispRefundUtils';
 
 describe('crispRefund utils', () => {
@@ -12,6 +14,52 @@ describe('crispRefund utils', () => {
         amount: BigInt(100),
         isClaimed: false,
         ...overrides,
+    });
+
+    describe('fetchFailureCondition', () => {
+        const readContractSpy = jest.spyOn(wagmiActions, 'readContract');
+        const interfold = '0x0000000000000000000000000000000000000002';
+        const params = {
+            chainId: 1,
+            pluginAddress:
+                '0x0000000000000000000000000000000000000003' as const,
+            e3Id: BigInt(7),
+        };
+
+        const mockCondition = (condition: readonly [boolean, number]) =>
+            readContractSpy.mockImplementation(
+                (_config, parameters) =>
+                    Promise.resolve(
+                        parameters.functionName === 'interfold'
+                            ? interfold
+                            : condition,
+                    ) as never,
+            );
+
+        afterEach(() => {
+            readContractSpy.mockReset();
+        });
+
+        it('asks the coordinator of the plugin whether the round can be marked as failed', async () => {
+            mockCondition([true, CrispE3FailureReason.COMPUTE_TIMEOUT]);
+
+            const reason = await crispRefundUtils.fetchFailureCondition(params);
+
+            expect(reason).toEqual(CrispE3FailureReason.COMPUTE_TIMEOUT);
+            expect(readContractSpy.mock.calls[1][1]).toMatchObject({
+                address: interfold,
+                functionName: 'checkFailureCondition',
+                args: [BigInt(7)],
+            });
+        });
+
+        it('returns null while no deadline was missed', async () => {
+            mockCondition([false, CrispE3FailureReason.NONE]);
+
+            expect(
+                await crispRefundUtils.fetchFailureCondition(params),
+            ).toBeNull();
+        });
     });
 
     describe('getRefundStep', () => {

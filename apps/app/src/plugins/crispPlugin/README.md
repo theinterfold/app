@@ -1,54 +1,65 @@
 # CRISP plugin
 
 CRISP proposals are ordinary proposals whose ballots are encrypted. The backend only supplies the
-generic proposal (metadata, dates, creator, actions), everything CRISP-specific is resolved by the
-plugin: on-chain reads of the `CrispVoting` plugin and the CRISP server (`api/crispService`). A
-proposal still renders, with an "encrypted" tally, when those sources are unreachable.
+proposal, including what the indexer reads from the `CrispVoting` plugin and the Interfold
+coordinator (the round, the thresholds, the tally and the failure of the round). The app only reads
+the round state it needs to vote from the CRISP server (`api/crispService`) and from the chain
+(`utils/crispRoundUtils`). A proposal still renders, with an "encrypted" tally, while the backend has
+not indexed its round.
 
 ## Data sources
 
-`B` = backend, `C` = CRISP server, `X` = on-chain read of the `CrispVoting` plugin.
+`B` = backend, `C` = CRISP server.
 
-| Field                                            | Source | Where from                                                                         |
-| ------------------------------------------------ | ------ | ---------------------------------------------------------------------------------- |
-| title, summary, dates, creator, `hasActions`     | B      | proposal (`hasActions` are the actions of the SPP when the body is staged)         |
-| `e3Id`                                           | X      | `getProposal(proposalId).e3Id`                                                     |
-| `settings.minParticipation`                      | X      | `getProposal().parameters`, a percentage                                           |
-| `settings.supportThreshold`                      | X      | `getProposal().parameters`, a percentage                                           |
-| `settings.minVoterVotingPower`                   | X      | `getProposal().parameters.minVotingPower`                                          |
-| `settings.minProposerVotingPower`, `minDuration` | B      | proposal settings, not re-read on-chain                                            |
-| `settings.token`                                 | B      | proposal, with `decimals` read on-chain                                            |
-| `settings.historicalTotalSupply`                 | X      | `totalVotingPower(snapshot)`, the quorum denominator                               |
-| `isTallyPublished`, `metrics.votesByOption`      | X      | `getTally(proposalId)` (reverts until published) or the stored tally once executed |
-| `failureReason`                                  | X      | coordinator `getE3Stage` / `getFailureReason` / `checkFailureCondition`            |
-| round status, committee key                      | C      | `state/lite`, only used to know when a voter can vote                              |
+| Field                                            | Source | Where from                                                                        |
+| ------------------------------------------------ | ------ | --------------------------------------------------------------------------------- |
+| title, summary, dates, creator, `hasActions`     | B      | proposal (`hasActions` are the actions of the SPP when the body is staged)        |
+| `e3Id`                                           | B      | `getProposal(proposalId).e3Id`, indexed at `ProposalCreated`                      |
+| `settings.minParticipation`, `supportThreshold`  | B      | `getProposal().parameters`, a percentage                                          |
+| `settings.minVoterVotingPower`                   | B      | `getProposal().parameters.minVotingPower`                                         |
+| `settings.minProposerVotingPower`, `minDuration` | B      | proposal settings                                                                 |
+| `settings.token`                                 | B      | proposal                                                                          |
+| `settings.historicalTotalSupply`                 | B      | `totalVotingPower(snapshot)`, the quorum denominator                              |
+| `isTallyPublished`, `metrics.votesByOption`      | B      | Interfold `PlaintextOutputPublished` and the plugin `getTally`, or the executed   |
+| `failureReason`                                  | B      | Interfold `E3Failed`, absent while the round has not failed                       |
+| `votingPowerDivisor`                             | B      | `votingPowerDivisorOf(e3Id)` on the CRISP program of the round                    |
+| round status, committee key                      | C      | `state/lite`, only used to know when a voter can vote                             |
 
-The tally is read on-chain rather than from the server because execution keys on the chain, and an
-executed proposal freezes its tally there.
+The backend serves the CRISP-specific fields with the names, types and units of `ICrispProposal`,
+so the components and `crispProposalUtils` (status, quorum, support) read them straight from the
+proposal and the app makes no chain read to display a proposal. `useCrispProposal` polls the
+backend proposal every 15 seconds until it is settled (executed, `failureReason` set or
+`isTallyPublished`) and invalidates the indexed proposal queries when it settles.
 
-`utils/crispProposalResolverUtils` resolves these reads. It is registered on the
-`GOVERNANCE_RESOLVE_PROPOSAL` slot, which `governanceService` calls for CRISP proposals and the
-CRISP sub-proposals of staged processes, and `useCrispProposal` applies it on the proposal page,
-polling until the tally is published, the proposal is executed or its round failed.
+A round whose deadline passed without anyone marking it as failed on the coordinator emits no
+event, so the backend reports it as not failed until `E3Failed` is emitted and the lists show the
+proposal as pending until someone marks it. The proposal page detects it on-chain: while the
+proposal is unsettled, `useCrispProposal` also asks the coordinator (`interfold()` of the plugin,
+then `checkFailureCondition(e3Id)`, `crispRefundUtils.fetchFailureCondition`) every 15 seconds and
+sets `failureReason` from its answer when the backend has none. The refund card then shows and
+offers the marking step (`markE3Failed`). A settled proposal, or one whose `failureReason` the
+backend serves, reads nothing. Once the proposal shows as failed, the refund flow (`useCrispRefund`,
+`crispRefundUtils`) checks the round and the refund on-chain itself.
 
 ## Units
 
 - The server encodes voting power as `floor(balance / divisor)`, so tally counts are in vote units
   while `totalVotingPower` is in raw token units. The divisor is read per round,
   `votingPowerDivisorOf(e3Id)` on the CRISP program, and is never defaulted: without it the
-  proposal stays unresolved.
-- `metrics.votesByOption[].totalVotingPower` is in raw token units (count * divisor), as the UI
-  components format it with the decimals of the token.
+  proposal stays unresolved (`crispProposalUtils.isTallyResolved`).
+- `metrics.votesByOption[].totalVotingPower` is served in raw token units (count * divisor), as the
+  UI components format it with the decimals of the token.
 - Percentages are whole numbers out of 100 (not ppm). The math lives in `crispProposalUtils` and
   mirrors `_hasSucceeded`: quorum is `totalVotes * divisor * 100 >= minParticipation * totalVotingPower`
   and support requires yes to strictly exceed it, `(100 - t) * yes > t * no`, abstentions excluded.
   Quorum applies to signaling proposals too.
-- `getProposal().tally` is zeroed until `execute` stores it, so it is only trusted when executed.
 
 ## Failed rounds and refunds
 
-A round fails when the coordinator marks it `Failed` or a deadline passed that nobody marked yet.
-The proposal then gets the terminal `ProposalStatus.FAILED` and never publishes a tally. The fee is
+A round fails when the coordinator marks it `Failed`, which the backend indexes as `E3Failed`. The
+proposal then gets the terminal `ProposalStatus.FAILED` and never publishes a tally. A round whose
+deadline passed without being marked shows as failed only once someone marks it, the refund step
+below. The fee is
 returned in up to three permissionless transactions: `markE3Failed`, `processE3Failure` (both on
 the coordinator) and `claimRefund(proposalId)` (plugin), which credits the payer recorded at
 creation. The proposal page offers the next step to the payer (`utils/crispRefundUtils`) and then
@@ -189,14 +200,15 @@ What the app verifies, and what it takes from the CRISP server or the governance
 
 - **Verified on-chain or locally:** the committee key against its on-chain commitment, the
   coordinator of the plugin against `crispE3Config`, the circuit preset against the network, the
-  identity of the attested payload against the ballot the wallet built, and the `InputCommitted`
-  event against the same identity before success is reported.
-- **Residual risk, the slot head.** The previous ciphertext the new ballot is added to (the
-  `parentIndexPlusOne` of the slot) is resolved by the CRISP server, as the SDK resolves it. The
-  app does not re-derive it from the chain, so a dishonest server can hand the SDK a stale or
-  wrong head, which the voter cannot tell from the current one. The identity checks above bind the
-  payload to the proof the wallet built, not to the head that proof was built on. The server can
-  also refuse to stage or attest a ballot on either path.
+  slot head the ballot extends, the identity of the attested payload against the ballot the wallet
+  built, and the `InputCommitted` event against the same identity before success is reported.
+- **Slot head.** The previous ciphertext a ballot is added to (its `parentIndexPlusOne`) is
+  resolved by the SDK `getSlotHead` from the `InputCommitted` and `InputPublished` events of the
+  program, read through the RPC proxy, rather than from the server's `previous-ciphertext`. A ballot
+  built on a stale head would be committed and then dropped from the tally. Only the bytes of the
+  head come from the server's availability store (`/availability`), and they are checked against
+  the on-chain hash, so the server can withhold them, which fails the ballot, but not substitute
+  them. The server can also refuse to stage or attest a ballot on either path.
 - **Member list.** The random mask target is drawn from the member list read from the governance
   backend, which therefore sees that a mask is being prepared for the body and when. The draw itself
   stays in the browser, and the target is checked on-chain. The read is capped at 100 pages of 50

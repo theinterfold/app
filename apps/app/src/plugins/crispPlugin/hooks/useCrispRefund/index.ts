@@ -1,1 +1,2 @@
-export * from './useCrispRefund';
+export type { IUseCrispRefundParams } from './useCrispRefund';
+export { useCrispRefund } from './useCrispRefund';
