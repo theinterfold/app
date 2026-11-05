@@ -55,14 +55,15 @@ export interface IUseCrispFeeCreditsResult {
      */
     hasSufficientCredit: boolean;
     /**
-     * Approves the fee token when needed and deposits the shortfall plus a buffer. Resolves to
-     * false instead of throwing when the deposit did not happen.
+     * Amount `depositShortfall` deposits: the shortfall plus a buffer, zero when the credit
+     * covers the quote. Undefined while the quote or the credit is unknown.
+     */
+    depositAmount?: bigint;
+    /**
+     * Approves the fee token when needed and deposits `depositAmount`. Resolves to false instead
+     * of throwing when the deposit did not happen.
      */
     depositShortfall: () => Promise<boolean>;
-    /**
-     * Defines if the approval / deposit transactions are in flight.
-     */
-    isDepositing: boolean;
     /**
      * Defines if the quote, the credit or the fee token are loading.
      */

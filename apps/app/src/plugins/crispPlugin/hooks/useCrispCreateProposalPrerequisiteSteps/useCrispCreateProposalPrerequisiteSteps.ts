@@ -88,22 +88,44 @@ export const useCrispCreateProposalPrerequisiteSteps = (
         [proposalForm, stageDurations, now],
     );
 
-    const { hasSufficientCredit, depositShortfall, isLoading } =
-        useCrispFeeCredits({
-            pluginAddress: crispPlugin.address,
-            network: crispPlugin.settings.token.network,
-            quoteCalls,
-        });
+    const {
+        hasSufficientCredit,
+        depositAmount,
+        decimals,
+        symbol,
+        depositShortfall,
+        depositFailure,
+        isLoading,
+    } = useCrispFeeCredits({
+        pluginAddress: crispPlugin.address,
+        network: crispPlugin.settings.token.network,
+        quoteCalls,
+    });
 
     // Latched on the first settled read, as depositing would otherwise remove the step from under
-    // the running dialog. Undefined while not yet known.
+    // the running dialog. Undefined while not yet known. The amount is latched with it so the step
+    // keeps telling what it deposits once the credit covers the quote.
     const [isRequired, setIsRequired] = useState<boolean>();
+    const [amountLabel, setAmountLabel] = useState<string>();
 
     useEffect(() => {
         if (isRequired == null && !isLoading && areStagesResolved) {
             setIsRequired(!hasSufficientCredit);
+            if (depositAmount != null && decimals != null) {
+                setAmountLabel(
+                    crispFeeUtils.formatAmount(depositAmount, decimals, symbol),
+                );
+            }
         }
-    }, [isRequired, isLoading, areStagesResolved, hasSufficientCredit]);
+    }, [
+        isRequired,
+        isLoading,
+        areStagesResolved,
+        hasSufficientCredit,
+        depositAmount,
+        decimals,
+        symbol,
+    ]);
 
     const handleDeposit = useCallback(
         async ({ onError }: ITransactionDialogActionParams) => {
@@ -135,16 +157,20 @@ export const useCrispCreateProposalPrerequisiteSteps = (
             return [];
         }
 
+        const stepKey = `app.plugins.crisp.crispCreateProposalPrerequisiteSteps.step.${CrispCreateProposalStep.DEPOSIT_FEE}`;
+
         return [
             {
                 id: `${CrispCreateProposalStep.DEPOSIT_FEE}:${pluginAddress}`,
                 order: 0,
                 meta: {
-                    label: t(
-                        `app.plugins.crisp.crispCreateProposalPrerequisiteSteps.step.${CrispCreateProposalStep.DEPOSIT_FEE}.label`,
-                    ),
+                    label:
+                        amountLabel == null
+                            ? t(`${stepKey}.labelUnknownAmount`)
+                            : t(`${stepKey}.label`, { amount: amountLabel }),
                     errorLabel: t(
-                        `app.plugins.crisp.crispCreateProposalPrerequisiteSteps.step.${CrispCreateProposalStep.DEPOSIT_FEE}.errorLabel`,
+                        `${stepKey}.errorLabel.${depositFailure ?? 'transaction'}`,
+                        { symbol },
                     ),
                     state,
                     action: handleDeposit,
@@ -153,7 +179,16 @@ export const useCrispCreateProposalPrerequisiteSteps = (
                 },
             },
         ];
-    }, [isRequired, pluginAddress, state, handleDeposit, t]);
+    }, [
+        isRequired,
+        pluginAddress,
+        amountLabel,
+        depositFailure,
+        symbol,
+        state,
+        handleDeposit,
+        t,
+    ]);
 
     return { steps, isResolved: isRequired != null };
 };

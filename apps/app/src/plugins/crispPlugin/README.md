@@ -58,8 +58,8 @@ backend serves, reads nothing. Once the proposal shows as failed, the refund flo
 
 A round fails when the coordinator marks it `Failed`, which the backend indexes as `E3Failed`. The
 proposal then gets the terminal `ProposalStatus.FAILED` and never publishes a tally. A round whose
-deadline passed without being marked shows as failed only once someone marks it, the refund step
-below. The fee is
+deadline passed without being marked shows as failed too: the backend asks the coordinator
+(`checkFailureCondition`) and stores the reason it would be marked with. The fee is
 returned in up to three permissionless transactions: `markE3Failed`, `processE3Failure` (both on
 the coordinator) and `claimRefund(proposalId)` (plugin), which credits the payer recorded at
 creation. The proposal page offers the next step to the payer (`utils/crispRefundUtils`) and then
@@ -72,7 +72,9 @@ the withdrawal of the fee credit, which the fee card of the creation wizard offe
   of a staged process. The setup installs no condition, so a body cannot restrict proposal creation
   in a staged process.
 - The creator pays the E3 fee from a credit held on the plugin. The publish dialog adds a top-up
-  step when the credit does not cover the quote (`useCrispCreateProposalPrerequisiteSteps`).
+  step when the credit does not cover the quote (`useCrispCreateProposalPrerequisiteSteps`), for a
+  proposal created directly and through a staged process alike. The step names the amount it
+  deposits, and the fee card of the creation wizard announces it beforehand.
   Quotes follow the window the contract derives: `quoteProposalFeeForDuration(stageDuration)` per
   stage of a staged process, otherwise `quoteProposalFee(startDate, endDate)` with the same dates
   `createProposal` is sent.

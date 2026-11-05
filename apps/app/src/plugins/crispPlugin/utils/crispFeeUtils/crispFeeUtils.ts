@@ -1,4 +1,5 @@
-import { decodeErrorResult, type Hex, parseAbi } from 'viem';
+import { formatterUtils, NumberFormat } from '@aragon/gov-ui-kit';
+import { decodeErrorResult, formatUnits, type Hex, parseAbi } from 'viem';
 import { createProposalUtils } from '@/modules/governance/utils/createProposalUtils';
 import type { ICreateCrispProposalFormData } from '../crispTransactionUtils';
 
@@ -71,6 +72,24 @@ class CrispFeeUtils {
     // Unknown values count as insufficient: a retry is cheaper than a reverted transaction
     hasSufficientCredit = (quote?: bigint, credit?: bigint): boolean =>
         quote != null && credit != null && credit >= quote;
+
+    // Fee-token amount for display, e.g. `12.5 FOLD`, or `-` while the amount or the token is unknown
+    formatAmount = (
+        amount?: bigint,
+        decimals?: number,
+        symbol?: string,
+    ): string => {
+        if (amount == null || decimals == null) {
+            return '-';
+        }
+
+        const value =
+            formatterUtils.formatNumber(formatUnits(amount, decimals), {
+                format: NumberFormat.TOKEN_AMOUNT_SHORT,
+            }) ?? '-';
+
+        return `${value} ${symbol ?? ''}`.trim();
+    };
 
     // Whether creating a proposal reverted because the creator lacks fee credit, which the prerequisite steps top up
     isInsufficientCreditRevert = (revertData: Hex): boolean => {
