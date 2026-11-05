@@ -52,13 +52,6 @@ export const crispInterfoldAbi = [
     {
         type: 'function',
         inputs: [{ name: 'e3Id', type: 'uint256' }],
-        name: 'getFailureReason',
-        outputs: [{ name: 'reason', type: 'uint8' }],
-        stateMutability: 'view',
-    },
-    {
-        type: 'function',
-        inputs: [{ name: 'e3Id', type: 'uint256' }],
         name: 'checkFailureCondition',
         outputs: [
             { name: 'canFail', type: 'bool' },

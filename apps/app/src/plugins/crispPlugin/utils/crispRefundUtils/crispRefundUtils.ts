@@ -6,6 +6,7 @@ import {
     crispInterfoldAbi,
     crispRefundManagerAbi,
 } from '../../constants/crispInterfoldAbi';
+import type { CrispE3FailureReason } from '../../types';
 import { crispPluginAbi } from '../crispTransactionUtils/crispPluginAbi';
 
 // Transactions leading from a failed round to a refunded credit, in order
@@ -45,7 +46,37 @@ export interface IFetchCrispRefundStateParams {
     e3Id: bigint;
 }
 
+export type IFetchCrispFailureConditionParams = Omit<
+    IFetchCrispRefundStateParams,
+    'proposalId'
+>;
+
 class CrispRefundUtils {
+    // A round whose deadline passed without anyone marking it emits no event, so the indexed
+    // proposal does not report it as failed. Null while the round has not missed a deadline.
+    fetchFailureCondition = async (
+        params: IFetchCrispFailureConditionParams,
+    ): Promise<CrispE3FailureReason | null> => {
+        const { chainId, pluginAddress, e3Id } = params;
+
+        const interfold = await readContract(wagmiConfig, {
+            chainId,
+            address: pluginAddress,
+            abi: crispPluginAbi,
+            functionName: 'interfold',
+        });
+
+        const [canFail, reason] = await readContract(wagmiConfig, {
+            chainId,
+            address: interfold,
+            abi: crispInterfoldAbi,
+            functionName: 'checkFailureCondition',
+            args: [e3Id],
+        });
+
+        return canFail ? reason : null;
+    };
+
     fetchRefundState = async (
         params: IFetchCrispRefundStateParams,
     ): Promise<ICrispRefundState> => {

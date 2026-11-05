@@ -13,8 +13,7 @@ describe('crispProposal utils', () => {
     const past = DateTime.now().minus({ days: 1 }).toSeconds();
     const future = DateTime.now().plus({ days: 1 }).toSeconds();
 
-    // A tally in raw token units, which is what the proposal resolver normalises the on-chain
-    // counts into (count * divisor) before any of these helpers see them.
+    // A tally in raw token units, as served by the backend.
     const buildVotes = (yes: string, no: string, abstain = '0') => [
         { type: VoteOption.YES, totalVotingPower: yes },
         { type: VoteOption.NO, totalVotingPower: no },
@@ -180,6 +179,45 @@ describe('crispProposal utils', () => {
             expect(crispProposalUtils.isTallyResolved(noDivisor)).toBeFalsy();
             expect(crispProposalUtils.isTallyResolved(zeroDivisor)).toBeFalsy();
             expect(crispProposalUtils.isTallyResolved(unpublished)).toBeFalsy();
+        });
+    });
+
+    describe('isSettled', () => {
+        const waiting = {
+            yes: '0',
+            no: '0',
+            isTallyPublished: false,
+        };
+
+        it('is not settled while the round awaits its tally', () => {
+            expect(
+                crispProposalUtils.isSettled(buildProposal(waiting)),
+            ).toBeFalsy();
+        });
+
+        it('is settled once the tally is published', () => {
+            expect(
+                crispProposalUtils.isSettled(
+                    buildProposal({ ...waiting, isTallyPublished: true }),
+                ),
+            ).toBeTruthy();
+        });
+
+        it('is settled once the round failed', () => {
+            const proposal = {
+                ...buildProposal(waiting),
+                failureReason: CrispE3FailureReason.DKG_TIMEOUT,
+            };
+
+            expect(crispProposalUtils.isSettled(proposal)).toBeTruthy();
+        });
+
+        it('is settled once the proposal is executed', () => {
+            expect(
+                crispProposalUtils.isSettled(
+                    buildProposal({ ...waiting, isExecuted: true }),
+                ),
+            ).toBeTruthy();
         });
     });
 

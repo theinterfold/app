@@ -10,8 +10,6 @@ import { generateSppStage } from '@/plugins/sppPlugin/testUtils/generators/sppSt
 import type { ISppProposal } from '@/plugins/sppPlugin/types';
 import { Network, PluginInterfaceType } from '@/shared/api/daoService';
 import { generatePaginatedResponse } from '@/shared/testUtils';
-import { pluginRegistryUtils } from '@/shared/utils/pluginRegistryUtils';
-import { GovernanceSlotId } from '../../constants/moduleSlots';
 import {
     generateMember,
     generateProposal,
@@ -416,89 +414,6 @@ describe('governance service', () => {
 
         expect(result.subProposals[0].title).toEqual('');
         expect(result.subProposals[0].summary).toEqual('');
-    });
-
-    describe('proposal resolution slot', () => {
-        const pluginId = 'resolved-plugin';
-        const resolve = (proposal: IProposal) =>
-            Promise.resolve({ ...proposal, title: 'resolved' });
-
-        beforeAll(() => {
-            pluginRegistryUtils.registerSlotFunction({
-                slotId: GovernanceSlotId.GOVERNANCE_RESOLVE_PROPOSAL,
-                pluginId,
-                function: resolve,
-            });
-        });
-
-        it('getProposalBySlug resolves the proposal through the slot of its plugin', async () => {
-            const proposal = generateProposal({
-                pluginInterfaceType: pluginId as PluginInterfaceType,
-            });
-            requestSpy.mockResolvedValue(proposal);
-
-            const result = await governanceService.getProposalBySlug({
-                urlParams: { slug: proposal.id },
-                queryParams: { daoId: 'test-id' },
-            });
-
-            expect(result.title).toEqual('resolved');
-        });
-
-        it('getProposalList resolves every proposal through the slot of its plugin', async () => {
-            const resolved = generateProposal({
-                pluginInterfaceType: pluginId as PluginInterfaceType,
-            });
-            const untouched = generateProposal({
-                pluginInterfaceType: PluginInterfaceType.MULTISIG,
-                title: 'untouched',
-            });
-            requestSpy.mockResolvedValue(
-                generatePaginatedResponse({ data: [resolved, untouched] }),
-            );
-
-            const result = await governanceService.getProposalList({
-                queryParams: { daoId: 'test-id' },
-            });
-
-            expect(result.data.map((proposal) => proposal.title)).toEqual([
-                'resolved',
-                'untouched',
-            ]);
-        });
-
-        it('resolves the sub-proposals of an SPP proposal through the slot of their plugin', async () => {
-            const resolvedSub = {
-                ...generateProposal({
-                    id: 'sub-resolved',
-                    pluginInterfaceType: pluginId as PluginInterfaceType,
-                }),
-                stageIndex: 0,
-            };
-            const multisigSub = {
-                ...generateMultisigProposal({
-                    id: 'sub-multisig',
-                    title: 'untouched',
-                }),
-                stageIndex: 0,
-            };
-            const proposal = generateSppProposal({
-                pluginInterfaceType: PluginInterfaceType.SPP,
-                subProposals: [resolvedSub, multisigSub],
-            });
-            requestSpy.mockResolvedValue(proposal);
-
-            const result =
-                await governanceService.getProposalBySlug<ISppProposal>({
-                    urlParams: { slug: proposal.id },
-                    queryParams: { daoId: 'test-id' },
-                });
-
-            expect(result.subProposals.map((sub) => sub.title)).toEqual([
-                'resolved',
-                'untouched',
-            ]);
-        });
     });
 
     it('getCanCreateProposal fetches if the member can create a proposal on the specified plugin', async () => {

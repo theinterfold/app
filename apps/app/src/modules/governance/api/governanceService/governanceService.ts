@@ -5,8 +5,6 @@ import {
     AragonBackendService,
     type IPaginatedResponse,
 } from '@/shared/api/aragonBackendService';
-import { pluginRegistryUtils } from '@/shared/utils/pluginRegistryUtils';
-import { GovernanceSlotId } from '../../constants/moduleSlots';
 import type {
     ICanCreateProposalResult,
     IMemberExistsResult,
@@ -100,14 +98,10 @@ class GovernanceService extends AragonBackendService {
 
         return {
             ...result,
-            data: await Promise.all(
-                result.data.map((proposal) =>
-                    this.resolveProposal(
-                        this.attachTotalSupply(
-                            this.normalizeMetadata(proposal),
-                            tokensTotalSupply,
-                        ),
-                    ),
+            data: result.data.map((proposal) =>
+                this.attachTotalSupply(
+                    this.normalizeMetadata(proposal),
+                    tokensTotalSupply,
                 ),
             ),
         };
@@ -127,11 +121,9 @@ class GovernanceService extends AragonBackendService {
                 ? {}
                 : await fetchTokensTotalSupply(proposal.network, addresses);
 
-        return this.resolveProposal(
-            this.attachTotalSupply(
-                this.normalizeMetadata(proposal),
-                tokensTotalSupply,
-            ),
+        return this.attachTotalSupply(
+            this.normalizeMetadata(proposal),
+            tokensTotalSupply,
         );
     };
 
@@ -191,36 +183,6 @@ class GovernanceService extends AragonBackendService {
         }
 
         return proposal;
-    };
-
-    // Lets plugins enrich proposals with state that is not indexed by the backend. The sub-proposals
-    // of an SPP proposal are resolved by the plugin of their body.
-    private resolveProposal = async <TProposal extends IProposal>(
-        proposal: TProposal,
-    ): Promise<TProposal> => {
-        if (sppProposalUtils.isSppProposal(proposal)) {
-            const subProposals = await Promise.all(
-                proposal.subProposals.map(this.resolvePluginProposal),
-            );
-
-            return { ...proposal, subProposals };
-        }
-
-        return this.resolvePluginProposal(proposal);
-    };
-
-    private resolvePluginProposal = <TProposal extends IProposal>(
-        proposal: TProposal,
-    ): Promise<TProposal> => {
-        const resolve = pluginRegistryUtils.getSlotFunction<
-            TProposal,
-            Promise<TProposal>
-        >({
-            slotId: GovernanceSlotId.GOVERNANCE_RESOLVE_PROPOSAL,
-            pluginId: proposal.pluginInterfaceType,
-        });
-
-        return resolve ? resolve(proposal) : Promise.resolve(proposal);
     };
 
     getProposalActions = async <
