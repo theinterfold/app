@@ -1,5 +1,6 @@
 import { ProposalVotingTab, Tabs } from '@aragon/gov-ui-kit';
 import { render, screen } from '@testing-library/react';
+import { DateTime } from 'luxon';
 import { governanceService } from '@/modules/governance/api/governanceService/governanceService';
 import * as daoService from '@/shared/api/daoService';
 import { PluginInterfaceType } from '@/shared/api/daoService';
@@ -16,7 +17,7 @@ import * as useCrispFeeCreditsModule from '../../hooks/useCrispFeeCredits';
 import * as useCrispProposalModule from '../../hooks/useCrispProposal';
 import * as useCrispRefundModule from '../../hooks/useCrispRefund';
 import { generateCrispProposal } from '../../testUtils';
-import { CrispE3FailureReason } from '../../types';
+import { CrispE3FailureReason, CrispE3Stage } from '../../types';
 import { crispRefundUtils } from '../../utils/crispRefundUtils';
 import {
     CrispProposalVotingBreakdown,
@@ -82,14 +83,36 @@ describe('<CrispProposalVotingBreakdown /> component', () => {
         );
     };
 
-    it('keeps the vote submission below the encrypted notice while the tally is unpublished', () => {
-        const proposal = generateCrispProposal({ isTallyPublished: false });
+    it('keeps the vote submission below the encrypted notice while voting is open', () => {
+        const proposal = generateCrispProposal({
+            isTallyPublished: false,
+            startDate: DateTime.now().minus({ hours: 1 }).toSeconds(),
+            endDate: DateTime.now().plus({ hours: 1 }).toSeconds(),
+        });
         render(createTestComponent({ proposal, children: 'vote-children' }));
         expect(screen.getByRole('tabpanel')).toBeInTheDocument();
         expect(
-            screen.getByText(/crispProposalVotingBreakdown.encrypted.heading/),
+            screen.getByText(/useCrispRoundPhase.phase.voting.heading/),
         ).toBeInTheDocument();
+        expect(
+            screen.queryByText(/useCrispRoundPhase.deadline/),
+        ).not.toBeInTheDocument();
         expect(screen.getByText('vote-children')).toBeInTheDocument();
+    });
+
+    it('tells a closed round is being decrypted and until when the committee has', () => {
+        const proposal = generateCrispProposal({
+            isTallyPublished: false,
+            e3Stage: CrispE3Stage.CIPHERTEXT_READY,
+            e3StageDeadline: DateTime.now().plus({ hours: 6 }).toSeconds(),
+        });
+        render(createTestComponent({ proposal }));
+        expect(
+            screen.getByText(/useCrispRoundPhase.phase.decrypting.heading/),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText(/useCrispRoundPhase.deadline.upcoming/),
+        ).toBeInTheDocument();
     });
 
     it('offers the refund of a round that missed a deadline nobody marked yet', async () => {
@@ -146,9 +169,7 @@ describe('<CrispProposalVotingBreakdown /> component', () => {
             await screen.findByText(/crispProposalRefund.heading/),
         ).toBeInTheDocument();
         expect(
-            screen.queryByText(
-                /crispProposalVotingBreakdown.encrypted.heading/,
-            ),
+            screen.queryByText(/useCrispRoundPhase.phase/),
         ).not.toBeInTheDocument();
     });
 });

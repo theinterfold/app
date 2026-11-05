@@ -1,6 +1,3 @@
-// IInterfold.E3Stage.Failed
-export const crispE3StageFailed = 6;
-
 // Interfold coordinator reads (E3 record, BFV parameter sets, round lifecycle) and the
 // permissionless calls that settle a failed round.
 export const crispInterfoldAbi = [
@@ -64,6 +61,13 @@ export const crispInterfoldAbi = [
         inputs: [],
         name: 'e3RefundManager',
         outputs: [{ name: '', type: 'address' }],
+        stateMutability: 'view',
+    },
+    {
+        type: 'function',
+        inputs: [],
+        name: 'markFailedGracePeriod',
+        outputs: [{ name: '', type: 'uint256' }],
         stateMutability: 'view',
     },
     {

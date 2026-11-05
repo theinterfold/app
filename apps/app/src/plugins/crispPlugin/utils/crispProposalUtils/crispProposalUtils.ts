@@ -1,13 +1,28 @@
 import { ProposalStatus } from '@aragon/gov-ui-kit';
+import { DateTime } from 'luxon';
 import { formatUnits } from 'viem';
 import { VoteOption } from '@/plugins/tokenPlugin/types';
 import { tokenProposalUtils } from '@/plugins/tokenPlugin/utils/tokenProposalUtils';
 import { bigIntUtils } from '@/shared/utils/bigIntUtils';
 import { proposalStatusUtils } from '@/shared/utils/proposalStatusUtils';
-import { CrispE3FailureReason, type ICrispProposal } from '../../types';
+import {
+    CrispE3FailureReason,
+    CrispE3Stage,
+    type ICrispProposal,
+} from '../../types';
 
 // CRISP percentages are whole numbers out of 100 instead of the ppm used by token voting
 const ratioBase = BigInt(100);
+
+// Steps of a round whose tally is not known yet: the window opens, ballots are cast, then the
+// ballots are tallied under encryption and the committee decrypts the tally. A window that closed
+// before the committee published its key is stuck on the key.
+export type CrispRoundPhase =
+    | 'scheduled'
+    | 'voting'
+    | 'keyGeneration'
+    | 'computing'
+    | 'decrypting';
 
 class CrispProposalUtils {
     getProposalStatus = (proposal: ICrispProposal): ProposalStatus => {
@@ -131,6 +146,51 @@ class CrispProposalUtils {
 
     // CrispVoting.execute() is not guarded by the EXECUTE_PROPOSAL_PERMISSION
     hasExecuteProposalPermissionModifier = () => false;
+
+    // Where a round whose tally is not known and that has not failed stands. Past the window, the
+    // step comes from the last Interfold stage the backend read, a round it has not read yet is
+    // taken to be computing.
+    getRoundPhase = (proposal: ICrispProposal): CrispRoundPhase => {
+        const { startDate, endDate, e3Stage } = proposal;
+
+        if (DateTime.now().toSeconds() < startDate) {
+            return 'scheduled';
+        }
+
+        if (!proposalStatusUtils.hasEnded({ isExecuted: false, endDate })) {
+            return 'voting';
+        }
+
+        switch (e3Stage) {
+            case CrispE3Stage.NONE:
+            case CrispE3Stage.REQUESTED:
+            case CrispE3Stage.COMMITTEE_FINALIZED:
+                return 'keyGeneration';
+            // A complete round is decrypted, its tally is on the way to the backend
+            case CrispE3Stage.CIPHERTEXT_READY:
+            case CrispE3Stage.COMPLETE:
+                return 'decrypting';
+            default:
+                return 'computing';
+        }
+    };
+
+    // The deadline of the step a closed round is in, in milliseconds: the round fails if the
+    // step has not finished by then. Undefined while the window is open, and when the backend
+    // has not read it.
+    getRoundPhaseDeadline = (proposal: ICrispProposal): number | undefined => {
+        const phase = this.getRoundPhase(proposal);
+
+        if (
+            phase === 'scheduled' ||
+            phase === 'voting' ||
+            proposal.e3StageDeadline == null
+        ) {
+            return undefined;
+        }
+
+        return proposal.e3StageDeadline * 1000;
+    };
 
     // Groups the failure reasons by the phase of the round that went wrong
     getFailureCause = (

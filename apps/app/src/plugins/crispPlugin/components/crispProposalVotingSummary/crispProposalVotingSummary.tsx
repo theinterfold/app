@@ -53,10 +53,12 @@ export const CrispProposalVotingSummary: React.FC<
 
     // Ballots are encrypted while the proposal is active, and until the committee has published
     // the tally after it closed: no support values can be shown, and "not approved" would be a
-    // guess.
+    // guess. The summary tells the step of the round instead.
     if (!crispProposalUtils.isTallyResolved(proposal) && !isExecuted) {
         return renderStatus(
-            proposal.failureReason != null ? 'failed' : 'encrypted',
+            proposal.failureReason != null
+                ? 'failed'
+                : `phase.${crispProposalUtils.getRoundPhase(proposal)}`,
             'text-neutral-500',
         );
     }

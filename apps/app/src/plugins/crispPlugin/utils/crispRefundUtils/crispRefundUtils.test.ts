@@ -1,6 +1,6 @@
 import * as wagmiActions from 'wagmi/actions';
-import { crispE3StageFailed } from '../../constants/crispInterfoldAbi';
-import { CrispE3FailureReason } from '../../types';
+import { generateCrispProposal } from '../../testUtils';
+import { CrispE3FailureReason, CrispE3Stage } from '../../types';
 import { crispRefundUtils, type ICrispRefundState } from './crispRefundUtils';
 
 describe('crispRefund utils', () => {
@@ -9,7 +9,8 @@ describe('crispRefund utils', () => {
     ): ICrispRefundState => ({
         payer: '0x0000000000000000000000000000000000000001',
         interfold: '0x0000000000000000000000000000000000000002',
-        stage: crispE3StageFailed,
+        stage: CrispE3Stage.FAILED,
+        markFailedGracePeriod: 3600,
         isCalculated: true,
         amount: BigInt(100),
         isClaimed: false,
@@ -64,7 +65,10 @@ describe('crispRefund utils', () => {
 
     describe('getRefundStep', () => {
         it('marks a round that missed a deadline as failed first', () => {
-            const state = buildState({ stage: 3, isCalculated: false });
+            const state = buildState({
+                stage: CrispE3Stage.KEY_PUBLISHED,
+                isCalculated: false,
+            });
 
             expect(crispRefundUtils.getRefundStep(state)).toEqual('markFailed');
         });
@@ -93,6 +97,27 @@ describe('crispRefund utils', () => {
             const state = buildState({ amount: BigInt(0) });
 
             expect(crispRefundUtils.getRefundStep(state)).toBeUndefined();
+        });
+    });
+
+    describe('getMarkFailedStart', () => {
+        it('opens the call to anyone once the grace period after the missed deadline ends', () => {
+            const proposal = generateCrispProposal({
+                e3StageDeadline: 1_793_917_932,
+            });
+
+            expect(
+                crispRefundUtils.getMarkFailedStart(proposal, buildState()),
+            ).toEqual((1_793_917_932 + 3600) * 1000);
+        });
+
+        it('is unknown while the backend has not read the deadline', () => {
+            expect(
+                crispRefundUtils.getMarkFailedStart(
+                    generateCrispProposal(),
+                    buildState(),
+                ),
+            ).toBeUndefined();
         });
     });
 });

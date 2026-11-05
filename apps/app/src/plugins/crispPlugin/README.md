@@ -54,6 +54,19 @@ backend serves, reads nothing. Once the proposal shows as failed, the refund flo
   and support requires yes to strictly exceed it, `(100 - t) * yes > t * no`, abstentions excluded.
   Quorum applies to signaling proposals too.
 
+## Round progress
+
+The status of a proposal whose tally is not known stays `ProposalStatus.PENDING`, before voting
+opens and after it closes alike. The voting terminal opens the breakdown of a pending proposal once
+its vote started, and the plugin's breakdown tells the step of the round
+(`crispProposalUtils.getRoundPhase`, `useCrispRoundPhase`): scheduled, voting, then once the window
+closed the step the backend last read from the coordinator (`e3Stage`): tallying the encrypted
+ballots (`KeyPublished`), decrypting the result (`CiphertextReady`), or waiting for the committee's
+key when the window closed without one. Past the window the step comes with its deadline
+(`e3StageDeadline`, the one `checkFailureCondition` fails the round on), so a stalled committee or
+computation shows until when it may still finish. A body of a staged process shows the step in its
+summary too.
+
 ## Failed rounds and refunds
 
 A round fails when the coordinator marks it `Failed`, which the backend indexes as `E3Failed`. The
@@ -62,8 +75,11 @@ deadline passed without being marked shows as failed too: the backend asks the c
 (`checkFailureCondition`) and stores the reason it would be marked with. The fee is
 returned in up to three permissionless transactions: `markE3Failed`, `processE3Failure` (both on
 the coordinator) and `claimRefund(proposalId)` (plugin), which credits the payer recorded at
-creation. The proposal page offers the next step to the payer (`utils/crispRefundUtils`) and then
-the withdrawal of the fee credit, which the fee card of the creation wizard offers as well.
+creation. For `markFailedGracePeriod` seconds after the missed deadline, `markE3Failed` is reserved
+to the requester, the coordinator owner and the committee, so the payer is told when the refund can
+start instead of being offered a call that reverts. The proposal page offers the next step to the
+payer (`utils/crispRefundUtils`) and then the withdrawal of the fee credit, which the fee card of
+the creation wizard offers as well.
 
 ## Install, creation and staged processes
 

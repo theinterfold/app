@@ -6,7 +6,7 @@ import {
     generateCrispPluginSettings,
     generateCrispProposal,
 } from '../../testUtils';
-import { CrispE3FailureReason } from '../../types';
+import { CrispE3FailureReason, CrispE3Stage } from '../../types';
 import { crispProposalUtils } from './crispProposalUtils';
 
 describe('crispProposal utils', () => {
@@ -441,6 +441,86 @@ describe('crispProposal utils', () => {
             [CrispE3FailureReason.NONE, 'unknown'],
         ])('maps reason %s to the %s phase', (reason, cause) => {
             expect(crispProposalUtils.getFailureCause(reason)).toEqual(cause);
+        });
+    });
+
+    describe('getRoundPhase', () => {
+        const buildRound = (params: {
+            startDate?: number;
+            endDate?: number;
+            e3Stage?: CrispE3Stage;
+        }) =>
+            generateCrispProposal({
+                startDate: params.startDate ?? past,
+                endDate: params.endDate ?? past,
+                e3Stage: params.e3Stage,
+            });
+
+        it('is scheduled before the window opens, whatever the stage', () => {
+            const proposal = buildRound({
+                startDate: future,
+                endDate: future,
+                e3Stage: CrispE3Stage.KEY_PUBLISHED,
+            });
+
+            expect(crispProposalUtils.getRoundPhase(proposal)).toEqual(
+                'scheduled',
+            );
+        });
+
+        it('is voting while the window is open, whatever the stage', () => {
+            const proposal = buildRound({
+                endDate: future,
+                e3Stage: CrispE3Stage.REQUESTED,
+            });
+
+            expect(crispProposalUtils.getRoundPhase(proposal)).toEqual(
+                'voting',
+            );
+        });
+
+        it.each([
+            [CrispE3Stage.REQUESTED, 'keyGeneration'],
+            [CrispE3Stage.COMMITTEE_FINALIZED, 'keyGeneration'],
+            [CrispE3Stage.KEY_PUBLISHED, 'computing'],
+            [undefined, 'computing'],
+            [CrispE3Stage.CIPHERTEXT_READY, 'decrypting'],
+            [CrispE3Stage.COMPLETE, 'decrypting'],
+        ])(
+            'maps stage %s of a closed round to the %s phase',
+            (e3Stage, phase) => {
+                expect(
+                    crispProposalUtils.getRoundPhase(buildRound({ e3Stage })),
+                ).toEqual(phase);
+            },
+        );
+    });
+
+    describe('getRoundPhaseDeadline', () => {
+        it('is the deadline of the stage a closed round is in, in milliseconds', () => {
+            const proposal = generateCrispProposal({
+                startDate: past,
+                endDate: past,
+                e3Stage: CrispE3Stage.CIPHERTEXT_READY,
+                e3StageDeadline: 1_793_917_932,
+            });
+
+            expect(crispProposalUtils.getRoundPhaseDeadline(proposal)).toEqual(
+                1_793_917_932_000,
+            );
+        });
+
+        it('is not shown while the window is open, the deadline being the computation one', () => {
+            const proposal = generateCrispProposal({
+                startDate: past,
+                endDate: future,
+                e3Stage: CrispE3Stage.KEY_PUBLISHED,
+                e3StageDeadline: 1_793_917_932,
+            });
+
+            expect(
+                crispProposalUtils.getRoundPhaseDeadline(proposal),
+            ).toBeUndefined();
         });
     });
 });

@@ -2747,23 +2747,24 @@
           "refund": {
             "available": "The fee paid for this round can be reclaimed.",
             "claimed": "The fee was refunded to your fee credit.",
+            "graceRunning": "The fee can be reclaimed from {{date}}, once the committee's grace period to report the failure has ended.",
             "none": "No refund is available for this round.",
             "payer": "The fee is refunded to the fee credit of the account that paid for it."
           },
           "withdraw": "Withdraw {{amount}} {{symbol}}"
         },
-        "crispProposalVotingBreakdown": {
-          "encrypted": {
-            "description": "Ballots are encrypted and will be tallied by the Interfold ciphernode committee once voting ends.",
-            "heading": "Results are encrypted"
-          }
-        },
         "crispProposalVotingSummary": {
           "approved": "approved",
-          "encrypted": "ballots encrypted",
           "failed": "round failed",
           "notApproved": "not approved",
           "notVetoed": "not vetoed",
+          "phase": {
+            "computing": "tallying encrypted ballots",
+            "decrypting": "decrypting the result",
+            "keyGeneration": "waiting for the committee",
+            "scheduled": "voting not started",
+            "voting": "ballots encrypted"
+          },
           "vetoed": "vetoed"
         },
         "crispRefundDialog": {
@@ -2922,6 +2923,34 @@
           "setup": {
             "description": "Token-weighted voting with encrypted ballots on The Interfold.",
             "name": "CRISP private voting"
+          }
+        },
+        "useCrispRoundPhase": {
+          "deadline": {
+            "passed": "This step missed its deadline of {{date}}, so the round can no longer produce a result.",
+            "upcoming": "If this step has not finished by {{date}}, the round fails and its fee can be refunded."
+          },
+          "phase": {
+            "computing": {
+              "description": "Voting has ended. The encrypted ballots are being tallied without decrypting any of them.",
+              "heading": "Tallying encrypted ballots"
+            },
+            "decrypting": {
+              "description": "The encrypted tally is ready. The Interfold ciphernode committee is decrypting it, the result appears here once it is published.",
+              "heading": "Decrypting the result"
+            },
+            "keyGeneration": {
+              "description": "Voting has ended, but the Interfold ciphernode committee has not published this round's encryption key.",
+              "heading": "Waiting for the committee"
+            },
+            "scheduled": {
+              "description": "The Interfold ciphernode committee is setting up this round. Ballots are encrypted and only the final tally is decrypted.",
+              "heading": "Voting has not started"
+            },
+            "voting": {
+              "description": "Ballots are encrypted and will be tallied by the Interfold ciphernode committee once voting ends.",
+              "heading": "Results are encrypted"
+            }
           }
         }
       },

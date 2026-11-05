@@ -1,1 +1,1 @@
-export { crispProposalUtils } from './crispProposalUtils';
+export { type CrispRoundPhase, crispProposalUtils } from './crispProposalUtils';
