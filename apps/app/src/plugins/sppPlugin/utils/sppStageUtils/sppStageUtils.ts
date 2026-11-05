@@ -270,8 +270,7 @@ class SppStageUtils {
 
     /**
      * The date an active stage counts down to: the end of its voting window, then the end of the
-     * latest body vote still open past the window, such as one that opens later than the stage, and
-     * then its max advance date while it stays active awaiting a body that reports its result late.
+     * latest body vote still open past the window, such as one that opens later than the stage.
      */
     getStageCountdownEnd = (
         proposal: ISppProposal,
@@ -293,7 +292,23 @@ class SppStageUtils {
 
         return openBodyEnds.length > 0
             ? DateTime.max(...openBodyEnds)
-            : this.getStageMaxAdvance(proposal, stage);
+            : endDate;
+    };
+
+    // Whether an active stage only waits for a body that reports its result after voting, such as
+    // one whose tally is decrypted once the vote closed: its window and every body vote are over,
+    // so nobody can vote in it any more.
+    isAwaitingLateResult = (
+        proposal: ISppProposal,
+        stage: ISppStage,
+    ): boolean => {
+        const countdownEnd = this.getStageCountdownEnd(proposal, stage);
+
+        return (
+            countdownEnd != null &&
+            DateTime.now() >= countdownEnd &&
+            this.getStageStatus(proposal, stage) === ProposalStatus.ACTIVE
+        );
     };
 
     getStageMaxAdvance = (
