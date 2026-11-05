@@ -402,6 +402,8 @@ export const useCrispSubmitVote = (
             }
 
             const prepared = await crispSdkUtils.prepareBallot({
+                network,
+                programAddress: context.programAddress,
                 serverUrl: crispService.getServerUrl(network),
                 e3Id: roundId,
                 publicKey,
