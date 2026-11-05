@@ -79,7 +79,10 @@ class ProxyUtils {
         // 'strict-dynamic' trusts the scripts our nonce'd bundles create, which the BotID challenge relies on,
         // and drops host allowlists, which is why the Vercel toolbar injected on previews is not allowed either.
         // Local development keeps 'unsafe-eval' for the dev bundles; BotID is not initialised there.
-        const scriptSrc = isLocal ? `'unsafe-eval'` : `'strict-dynamic'`;
+        // 'wasm-unsafe-eval' allows WebAssembly compilation only (in-browser ballot encryption and proofs), not eval.
+        const scriptSrc = isLocal
+            ? `'unsafe-eval'`
+            : `'strict-dynamic' 'wasm-unsafe-eval'`;
 
         const policies = [
             "default-src 'self'",

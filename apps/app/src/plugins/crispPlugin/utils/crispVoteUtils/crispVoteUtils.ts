@@ -1,4 +1,5 @@
 import { VoteOption } from '@/plugins/tokenPlugin/types';
+import { CrispError } from '../../types';
 
 /**
  * Aragon vote option of each CRISP option, by position: CRISP orders the options YES, NO, ABSTAIN
@@ -21,8 +22,8 @@ class CrispVoteUtils {
      */
     buildBallot = (option: VoteOption, weight: bigint): number[] => {
         if (weight > BigInt(Number.MAX_SAFE_INTEGER)) {
-            throw new Error(
-                'The voting power is too large to be encoded in a ballot.',
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.weightTooLarge',
             );
         }
 

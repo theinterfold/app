@@ -14,8 +14,15 @@ import { networkDefinitions } from '@/shared/constants/networkDefinitions';
 import { crispService, useCrispVoteStatus } from '../../api/crispService';
 import { crispProgramAbi } from '../../constants/crispProgramAbi';
 import type { ICrispProposal } from '../../types';
-import { CrispMaskTarget, CrispSubmitVoteMethod } from '../../types';
-import { crispBallotUtils } from '../../utils/crispBallotUtils';
+import {
+    CrispError,
+    CrispMaskTarget,
+    CrispSubmitVoteMethod,
+} from '../../types';
+import {
+    crispBallotUtils,
+    type ICrispCommitmentExpectation,
+} from '../../utils/crispBallotUtils';
 import {
     crispBallotWeightUtils,
     type ICrispBallotWeight,
@@ -42,7 +49,8 @@ interface IUseCrispSubmitVoteBaseParams {
      */
     proposal: ICrispProposal;
     /**
-     * How the ballot reaches the chain.
+     * How the ballot reaches the chain. A mask written to a random member always goes through the
+     * relay, whatever is set here.
      * @default CrispSubmitVoteMethod.RELAY
      */
     method?: CrispSubmitVoteMethod;
@@ -155,26 +163,24 @@ export interface IUseCrispSubmitVoteResult {
  * on-chain, except that nothing is signed.
  *
  * The attested payload, not the proof of the SDK, is what reaches the contract on either path.
+ * The wallet only sends it once it names the ballot built here, and a ballot is only reported as
+ * submitted once the receipt of its transaction shows the `InputCommitted` event for it. A mask
+ * for a random member is never sent from the wallet, as the sender would reveal it is a mask.
  */
 export const useCrispSubmitVote = (
     params: IUseCrispSubmitVoteParams,
 ): IUseCrispSubmitVoteResult => {
-    const {
-        proposal,
-        method = CrispSubmitVoteMethod.RELAY,
-        randomizeWeight = true,
-    } = params;
+    const { proposal, randomizeWeight = true } = params;
     const { network, e3Id, pluginAddress } = proposal;
 
-    const choice =
-        params.maskTarget != null
-            ? ({
-                  kind: 'mask',
-                  target: params.maskTarget,
-                  daoId: params.daoId,
-              } as const)
-            : ({ kind: 'vote', option: params.voteOption } as const);
-    const isMask = choice.kind === 'mask';
+    const isMask = params.maskTarget != null;
+
+    // A mask written to a random member is never sent from the wallet: its sender would not be the
+    // slot, which tells a mask apart from the vote of the voter on-chain.
+    const method =
+        params.maskTarget === CrispMaskTarget.RANDOM
+            ? CrispSubmitVoteMethod.RELAY
+            : (params.method ?? CrispSubmitVoteMethod.RELAY);
 
     const { address, chainId: walletChainId } = useWalletAccount();
     const { id: chainId } = networkDefinitions[network];
@@ -190,6 +196,11 @@ export const useCrispSubmitVote = (
     const [isWalletSubmission, setIsWalletSubmission] = useState(false);
     const [relayHash, setRelayHash] = useState<string>();
     const [walletHash, setWalletHash] = useState<Hex>();
+
+    // What the receipt of the wallet submission must show, which only the run that sent it knows.
+    const expectedCommitment = useRef<ICrispCommitmentExpectation | undefined>(
+        undefined,
+    );
 
     // The server can take minutes to choose who sends a ballot, so the wait can outlive the
     // dialog, and a wallet prompt must not open from a dialog the voter already left.
@@ -218,11 +229,17 @@ export const useCrispSubmitVote = (
             return;
         }
 
-        if (receipt?.status === 'success') {
-            setState('success');
-        } else if (receipt?.status === 'reverted') {
-            setError(new Error('The transaction reverted.'));
-            setState('error');
+        if (receipt != null && expectedCommitment.current != null) {
+            try {
+                crispBallotUtils.assertCommitted({
+                    receipt,
+                    expectation: expectedCommitment.current,
+                });
+                setState('success');
+            } catch (commitmentError) {
+                setError(commitmentError as Error);
+                setState('error');
+            }
         } else if (receiptError != null) {
             setError(receiptError);
             setState('error');
@@ -243,7 +260,7 @@ export const useCrispSubmitVote = (
     const { data: voteStatus, isLoading: isVoteStatusLoading } =
         useCrispVoteStatus(
             { ...roundParams, address: address ?? '' },
-            { enabled: hasRound && address != null },
+            { enabled: hasRound && address != null && !isMask },
         );
 
     const hasActiveSlot = voteStatus?.slot_active ?? false;
@@ -303,6 +320,7 @@ export const useCrispSubmitVote = (
         setError(undefined);
         setRelayHash(undefined);
         setWalletHash(undefined);
+        expectedCommitment.current = undefined;
         setIsVoteUpdate(hasActiveSlot && !isMask);
         setIsWalletSubmission(method === CrispSubmitVoteMethod.DIRECT);
         setActiveStep(CrispSubmitVoteStep.ENCRYPT);
@@ -310,12 +328,14 @@ export const useCrispSubmitVote = (
 
         try {
             if (address == null) {
-                throw new Error('Connect your wallet to submit a ballot.');
+                throw new CrispError(
+                    'app.plugins.crisp.crispSubmitVoteDialog.error.walletNotConnected',
+                );
             }
 
             if (roundState == null || !isRoundReady) {
-                throw new Error(
-                    'This round is not accepting ballots yet. Please wait and try again.',
+                throw new CrispError(
+                    'app.plugins.crisp.crispSubmitVoteDialog.error.roundNotAccepting',
                 );
             }
 
@@ -326,11 +346,10 @@ export const useCrispSubmitVote = (
             // A random mask target is drawn among the members of the body whose slot the program
             // accepts, so the draw can be refused as only the chain knows who is eligible.
             const slot =
-                choice.kind === 'mask' &&
-                choice.target === CrispMaskTarget.RANDOM
+                params.maskTarget === CrispMaskTarget.RANDOM
                     ? await crispMaskUtils.pickMaskTarget({
                           network,
-                          daoId: choice.daoId,
+                          daoId: params.daoId,
                           pluginAddress: pluginAddress as Hex,
                           e3Id: roundId,
                       })
@@ -346,6 +365,7 @@ export const useCrispSubmitVote = (
 
             const publicKey = Uint8Array.from(roundState.committee_public_key);
             const preset = await crispSdkUtils.verifyCommitteeKey({
+                network,
                 publicKey,
                 committeeKeyCommitment: context.committeeKeyCommitment,
                 encodedParams: context.encodedParams,
@@ -353,7 +373,7 @@ export const useCrispSubmitVote = (
 
             let vote: number[];
 
-            if (choice.kind === 'mask') {
+            if (params.maskTarget != null) {
                 vote = crispVoteUtils.buildMask();
             } else {
                 // The ballot counts the weight reviewed in the dialog, rechecked against the
@@ -375,7 +395,10 @@ export const useCrispSubmitVote = (
                     throw reviewError;
                 }
 
-                vote = crispVoteUtils.buildBallot(choice.option, countedWeight);
+                vote = crispVoteUtils.buildBallot(
+                    params.voteOption,
+                    countedWeight,
+                );
             }
 
             const prepared = await crispSdkUtils.prepareBallot({
@@ -399,7 +422,7 @@ export const useCrispSubmitVote = (
 
             let encodedProof: Hex;
 
-            if (choice.kind === 'mask') {
+            if (params.maskTarget != null) {
                 setActiveStep(CrispSubmitVoteStep.PROVE);
 
                 encodedProof = await crispSdkUtils.finishMask({
@@ -426,8 +449,8 @@ export const useCrispSubmitVote = (
                 // The circuit verifies a plain 65-byte ECDSA signature, not the EIP-1271 answer of
                 // a smart contract account.
                 if (size(signature) !== 65) {
-                    throw new Error(
-                        'This wallet signed with a smart-contract signature (for example a Safe), which encrypted ballots do not support yet. Vote from a wallet with its own key.',
+                    throw new CrispError(
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.smartContractSignature',
                     );
                 }
 
@@ -440,6 +463,13 @@ export const useCrispSubmitVote = (
                 });
             }
 
+            // What the chain must show for this ballot, whoever sends it.
+            const expectation: ICrispCommitmentExpectation = {
+                programAddress: context.programAddress,
+                e3Id: roundId,
+                identity: await crispSdkUtils.decodeInputIdentity(encodedProof),
+            };
+
             setActiveStep(CrispSubmitVoteStep.BROADCAST);
 
             // Both paths stage the ballot with the server first, as only it can sign the
@@ -450,13 +480,16 @@ export const useCrispSubmitVote = (
                 encodedProof,
                 sendFromWallet: method === CrispSubmitVoteMethod.DIRECT,
             });
-            setRelayHash(view.tx_hash ?? undefined);
+            setRelayHash(crispBallotUtils.parseTransactionHash(view.tx_hash));
 
             const step = await crispBallotUtils.followStagedBallot({
                 network,
                 view,
                 isCancelled: () => !isMounted.current,
-                onView: (job) => setRelayHash(job.tx_hash ?? undefined),
+                onView: (job) =>
+                    setRelayHash(
+                        crispBallotUtils.parseTransactionHash(job.tx_hash),
+                    ),
             });
 
             if (step == null || !isMounted.current) {
@@ -464,12 +497,40 @@ export const useCrispSubmitVote = (
             }
 
             if (step.action === 'committed') {
-                setState('success');
+                // The server saying the commitment is on-chain is not enough, a ballot is only
+                // reported as submitted once the chain shows it.
+                if (step.transactionHash == null) {
+                    throw new CrispError(
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.commitmentUnconfirmed',
+                    );
+                }
+
+                await crispBallotUtils.confirmRelayedCommitment({
+                    network,
+                    transactionHash: step.transactionHash,
+                    expectation,
+                });
+
+                if (isMounted.current) {
+                    setState('success');
+                }
 
                 return;
             }
 
-            // The wallet sends the payload attested by the server, never the proof built above.
+            if (params.maskTarget === CrispMaskTarget.RANDOM) {
+                throw new CrispError(
+                    'app.plugins.crisp.crispSubmitVoteDialog.error.maskNotRelayed',
+                );
+            }
+
+            // The wallet sends the payload attested by the server, which must be the ballot built
+            // above and not another one.
+            crispBallotUtils.assertAttestedPayload({
+                identity: expectation.identity,
+                payload: step.payload,
+            });
+
             setIsWalletSubmission(true);
             await switchToDaoChain();
 
@@ -481,6 +542,7 @@ export const useCrispSubmitVote = (
                 args: [roundId, step.payload],
             });
 
+            expectedCommitment.current = expectation;
             setWalletHash(hash);
         } catch (submitError) {
             setError(crispBallotUtils.describeFailure(submitError));

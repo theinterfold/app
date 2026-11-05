@@ -5,5 +5,3 @@ export const CrispProposalCreationSettings = dynamic(() =>
         (mod) => mod.CrispProposalCreationSettings,
     ),
 );
-
-export type { ICrispProposalCreationSettingsProps } from './crispProposalCreationSettings';

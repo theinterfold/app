@@ -33,7 +33,12 @@ describe('crispVote utils', () => {
 
             expect(() =>
                 crispVoteUtils.buildBallot(VoteOption.YES, tooLarge),
-            ).toThrow(/too large/);
+            ).toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.weightTooLarge',
+                }),
+            );
         });
     });
 

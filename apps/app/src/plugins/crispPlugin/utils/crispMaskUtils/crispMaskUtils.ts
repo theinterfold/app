@@ -2,10 +2,14 @@ import { addressUtils } from '@aragon/gov-ui-kit';
 import { getAddress, type Hex } from 'viem';
 import { governanceService } from '@/modules/governance/api/governanceService';
 import type { Network } from '@/shared/api/daoService';
+import { CrispError } from '../../types';
 import { crispRoundUtils } from '../crispRoundUtils';
 
 // Largest page the backend serves.
 const memberPageSize = 50;
+
+// Pages read at most, which bounds the requests a hostile or runaway member list can trigger.
+const maxMemberPages = 100;
 
 // Slots checked on-chain at once. A slot is checked in the order it was drawn, so checking several
 // together costs nothing in uniformity and spares a round trip per ineligible member.
@@ -97,6 +101,8 @@ class CrispMaskUtils {
 
     /**
      * Reads the addresses of the members of a CRISP body from the governance backend, each once.
+     *
+     * @throws When the list has more than `maxMemberPages` pages.
      */
     fetchMembers = async (params: {
         daoId: string;
@@ -115,6 +121,14 @@ class CrispMaskUtils {
             });
 
         const firstPage = await fetchPage(1);
+
+        if (firstPage.metadata.totalPages > maxMemberPages) {
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.tooManyMaskMembers',
+                { params: { max: maxMemberPages * memberPageSize } },
+            );
+        }
+
         const otherPages = await Promise.all(
             Array.from(
                 { length: Math.max(firstPage.metadata.totalPages - 1, 0) },
@@ -147,8 +161,8 @@ class CrispMaskUtils {
         const members = await this.fetchMembers({ daoId, pluginAddress });
 
         if (members.length === 0) {
-            throw new Error(
-                'This round has no members yet, so there is no slot to mask.',
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.noMaskMembers',
             );
         }
 
@@ -170,8 +184,8 @@ class CrispMaskUtils {
         });
 
         if (target == null) {
-            throw new Error(
-                'No member holds voting power in this round, so there is no slot to mask.',
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.noEligibleMaskMember',
             );
         }
 

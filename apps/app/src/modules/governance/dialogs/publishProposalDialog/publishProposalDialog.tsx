@@ -1,6 +1,5 @@
 import {
     AlertInline,
-    addressUtils,
     invariant,
     ProposalDataListItem,
     ProposalStatus,
@@ -11,6 +10,7 @@ import { estimateGas } from 'wagmi/actions';
 import { wagmiConfig } from '@/modules/application/constants/wagmi';
 import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
 import { useIndexedProposalStatus } from '@/modules/governance/hooks/useIndexedProposalStatus';
+import { useProposalPrerequisiteSteps } from '@/modules/governance/hooks/useProposalPrerequisiteSteps';
 import { PluginInterfaceType, useDao } from '@/shared/api/daoService';
 import { usePinJson } from '@/shared/api/ipfsService/mutations';
 import { TransactionType } from '@/shared/api/transactionService';
@@ -27,11 +27,7 @@ import { useStepper } from '@/shared/hooks/useStepper';
 import { daoUtils } from '@/shared/utils/daoUtils';
 import { pluginRegistryUtils } from '@/shared/utils/pluginRegistryUtils';
 import { GovernanceSlotId } from '../../constants/moduleSlots';
-import type {
-    ICreateProposalPrerequisiteStepsParams,
-    ICreateProposalPrerequisiteStepsResult,
-    ICreateProposalSkippedBodiesParams,
-} from '../../types';
+import type { ICreateProposalSkippedBodiesParams } from '../../types';
 import { PrerequisiteStepsCollector } from './prerequisiteStepsCollector';
 import type { IPublishProposalDialogProps } from './publishProposalDialog.api';
 import { publishProposalDialogUtils } from './publishProposalDialogUtils';
@@ -92,89 +88,13 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
         mutate: pinJson,
     } = usePinJson({ onSuccess: stepper.nextStep });
 
-    // Publishing to a staged process creates a proposal on each of its bodies, so the
-    // prerequisites and gas needs of the bodies apply as well. Derived from the cached DAO so the
-    // list keeps its identity across renders: the transaction dialog re-applies its steps on
-    // every new list.
-    const proposalPlugins = useMemo(() => {
-        const bodies = daoUtils
-            .getDaoPlugins(dao, {
-                includeSubPlugins: true,
-                includeLinkedAccounts: true,
-            })
-            ?.filter((body) =>
-                addressUtils.isAddressEqual(body.parentPlugin, plugin.address),
-            );
-
-        return [plugin, ...(bodies ?? [])];
-    }, [dao, plugin]);
-
-    const prerequisitePlugins = useMemo(
-        () =>
-            proposalPlugins.flatMap((item) => {
-                const usePrerequisiteSteps =
-                    pluginRegistryUtils.getSlotFunction<
-                        ICreateProposalPrerequisiteStepsParams,
-                        ICreateProposalPrerequisiteStepsResult
-                    >({
-                        slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_PREREQUISITE_STEPS,
-                        pluginId: item.interfaceType,
-                    });
-
-                return usePrerequisiteSteps
-                    ? [{ plugin: item, usePrerequisiteSteps }]
-                    : [];
-            }),
-        [proposalPlugins],
-    );
-
-    // Extra gas, in percent of the estimate, that the creation needs. A staged process swallows a
-    // body that fails to create its proposal, so the estimate can settle on a limit where a costly
-    // body runs out of gas and the proposal is created without it.
-    const gasHeadroom = useMemo(
-        () =>
-            Math.max(
-                0,
-                ...proposalPlugins.map(
-                    (item) =>
-                        pluginRegistryUtils.getSlotFunction<undefined, number>({
-                            slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_GAS_HEADROOM,
-                            pluginId: item.interfaceType,
-                        })?.(undefined) ?? 0,
-                ),
-            ),
-        [proposalPlugins],
-    );
-
-    const [prerequisites, setPrerequisites] = useState<
-        Record<string, ICreateProposalPrerequisiteStepsResult>
-    >({});
-
-    const handlePrerequisitesChange = useCallback(
-        (
-            pluginAddress: string,
-            result: ICreateProposalPrerequisiteStepsResult,
-        ) =>
-            setPrerequisites((current) => ({
-                ...current,
-                [pluginAddress]: result,
-            })),
-        [],
-    );
-
-    const prerequisiteSteps = useMemo(
-        () =>
-            prerequisitePlugins.flatMap(
-                ({ plugin: item }) => prerequisites[item.address]?.steps ?? [],
-            ),
-        [prerequisitePlugins, prerequisites],
-    );
-
-    // A plugin that has not reported yet looks like one without prerequisites, so the dialog
-    // only starts once every plugin has resolved its steps.
-    const arePrerequisitesResolved = prerequisitePlugins.every(
-        ({ plugin: item }) => prerequisites[item.address]?.isResolved === true,
-    );
+    const {
+        prerequisitePlugins,
+        prerequisiteSteps,
+        arePrerequisitesResolved,
+        gasHeadroom,
+        onChange: handlePrerequisitesChange,
+    } = useProposalPrerequisiteSteps({ dao, plugin });
 
     const handlePinJson = useCallback(
         (params: ITransactionDialogActionParams) => {

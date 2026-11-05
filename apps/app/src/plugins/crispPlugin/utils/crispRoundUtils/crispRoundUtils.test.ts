@@ -1,8 +1,9 @@
 import * as wagmiActions from 'wagmi/actions';
 import { Network } from '@/shared/api/daoService';
+import { crispE3Config } from '../../constants/crispE3Config';
 import { crispRoundUtils } from './crispRoundUtils';
 
-const interfold = '0x00000000000000000000000000000000000000a1';
+const interfold = crispE3Config[Network.ETHEREUM_SEPOLIA]!.interfoldAddress;
 const program = '0x00000000000000000000000000000000000000b2';
 const plugin = '0x00000000000000000000000000000000000000c3';
 const slot = '0x00000000000000000000000000000000000000d4';
@@ -60,6 +61,43 @@ describe('crispRound utils', () => {
             expect(record.interfoldAddress).toEqual(interfold);
             expect(record.programAddress).toEqual(program);
             expect(record.committeeKeyCommitment).toEqual('0x12');
+        });
+
+        it('refuses a plugin bound to a coordinator other than the configured one', async () => {
+            mockChain({
+                interfold: '0x00000000000000000000000000000000000000a1',
+            });
+
+            await expect(
+                crispRoundUtils.readE3Record({
+                    network: Network.ETHEREUM_SEPOLIA,
+                    pluginAddress: plugin,
+                    e3Id: BigInt(7),
+                }),
+            ).rejects.toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.interfoldUnexpected',
+                }),
+            );
+            expect(readContractSpy).toHaveBeenCalledTimes(1);
+        });
+
+        it('refuses a network without a configured coordinator', async () => {
+            mockChain();
+
+            await expect(
+                crispRoundUtils.readE3Record({
+                    network: Network.ETHEREUM_MAINNET,
+                    pluginAddress: plugin,
+                    e3Id: BigInt(7),
+                }),
+            ).rejects.toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.interfoldUnexpected',
+                }),
+            );
         });
     });
 
@@ -137,7 +175,12 @@ describe('crispRound utils', () => {
 
             await expect(
                 crispRoundUtils.readBallotContext(params),
-            ).rejects.toThrow(/on-chain/);
+            ).rejects.toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.censusNotOnchain',
+                }),
+            );
         });
 
         it('refuses a voter without voting power before any proving starts', async () => {
@@ -145,7 +188,12 @@ describe('crispRound utils', () => {
 
             await expect(
                 crispRoundUtils.readBallotContext(params),
-            ).rejects.toThrow(/no voting power/);
+            ).rejects.toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.noVotingPower',
+                }),
+            );
         });
 
         it('words the refusal of a mask target without voting power so it does not blame the voter', async () => {
@@ -156,7 +204,12 @@ describe('crispRound utils', () => {
                     ...params,
                     isOwnSlot: false,
                 }),
-            ).rejects.toThrow(/address to mask holds no voting power/);
+            ).rejects.toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.noVotingPowerMaskTarget',
+                }),
+            );
         });
 
         it('refuses a ballot before the input window opens', async () => {
@@ -171,7 +224,12 @@ describe('crispRound utils', () => {
 
             await expect(
                 crispRoundUtils.readBallotContext(params),
-            ).rejects.toThrow(/not started/);
+            ).rejects.toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.votingNotStarted',
+                }),
+            );
         });
 
         it('refuses a ballot after the commitment deadline', async () => {
@@ -179,7 +237,12 @@ describe('crispRound utils', () => {
 
             await expect(
                 crispRoundUtils.readBallotContext(params),
-            ).rejects.toThrow(/deadline/);
+            ).rejects.toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.deadlinePassed',
+                }),
+            );
         });
     });
 });

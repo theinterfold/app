@@ -111,15 +111,32 @@ availability attestation `publishInput` requires. The voter then picks who sends
 
 - `RELAY` (default): the server sends it, free for the voter. If it cannot, the job becomes
   `ready_for_commitment` and the voter's wallet sends it as in `DIRECT`.
-- `DIRECT`: the voter calls `CRISPProgram.publishInput(e3Id, payload)` and pays the gas.
+- `DIRECT`: the voter calls `CRISPProgram.publishInput(e3Id, payload)` and pays the gas. The server
+  still stages the ballot and signs the attestation, so it can refuse to process it.
 
-The wallet sends the attested payload returned by the server, not the SDK proof. A job that already
-reports a transaction hash is never sent again. The round must be `Active` with the committee key
+The wallet sends the attested payload returned by the server, not the SDK proof, and only after
+`crispBallotUtils.assertAttestedPayload` has checked that it carries the input identity (slot,
+ciphertext commitment, ciphertext hash, parent) of the proof the voter built. The SDK
+`decodeInputIdentity` reads the local envelope, the attested payload has two more fields (expiry and
+attestation signature, the layout `publishInput` decodes), so it is decoded with its own ABI. A job
+that already reports a transaction hash is never sent again.
+
+A ballot is reported as submitted only once the chain shows it: the receipt of the wallet
+transaction, or of the `tx_hash` the server reports on the relay path (`confirmRelayedCommitment`),
+must be a success that holds `CRISPProgram.InputCommitted` for this round, the slot and the
+ciphertext commitment of the voter's own proof. A relayed job without a transaction hash cannot be
+confirmed and fails. The hash is validated before it is read or linked to. The round must be `Active` with the committee key
 published and the on-chain input window open, which is checked before the slow proving starts.
 
 The round id is a decimal string end to end (ids are around 1e76) and only becomes a `bigint` for
 contract and SDK calls. The CRISP program is resolved from the chain: `plugin.interfold()` then
 `getE3(e3Id).e3Program`.
+
+**Round reads.** `readE3Record` refuses a plugin whose `interfold()` is not the
+`crispE3Config[network].interfoldAddress`, so the program of a round is only resolved through the
+configured coordinator. `crispE3Config[network].allowedPresets` lists the circuit presets a round
+may run under, and `verifyCommitteeKey` refuses any other. Sepolia allows `insecure-64`, a network
+with real value at stake must not list it.
 
 **SDK loading.** `@crisp-e3/sdk` and `@interfold/wasm` initialise WASM at import and weigh
 megabytes, so `crispSdkUtils` is the only importer and does it dynamically inside the call, which
@@ -140,9 +157,8 @@ ballots and a wallet is connected:
   needs voting power in the round.
 
 Both open the submit dialog in mask mode: `useCrispSubmitVote({ proposal, maskTarget, daoId })`
-runs the vote flow without the sign step (encrypt, prove, broadcast), so the broadcast, the job
-follow-up and the wallet fallback are the vote ones and hit the server with the same requests. What
-differs:
+runs the vote flow without the sign step (encrypt, prove, broadcast), so the broadcast and the job
+follow-up are the vote ones and hit the server with the same requests. What differs:
 
 - The ballot is `crispVoteUtils.buildMask()`, zero on each of the three options, prepared with
   `isMaskVote: true` for the slot of the target and the voting power of **that slot**
@@ -152,6 +168,12 @@ differs:
 - `CRISPProgram` refuses a mask to a slot below the divisor of the round (`SlotNotEligible`), so
   the target must hold voting power. `readBallotContext` checks it before the slow proving starts,
   with a wording that fits an own slot and someone else's.
+- A mask of a random member is **never sent from the wallet**: its sender would not be the slot,
+  which tells it apart from a vote. The dialog does not offer `DIRECT` for it, the hook relays it
+  whatever method is asked for, and when the relay hands the payload back the flow fails with
+  `maskNotRelayed` instead of sending. A mask of the own slot keeps both paths, as sender and slot
+  are the same. The connected address is not looked up on the CRISP server in mask mode
+  (`useCrispVoteStatus` is disabled), as its `slot_active` hint is a vote-only concept.
 - The members of a random target come from the member list of the backend for the body
   (`governanceService.getMemberList` with `daoId` and `pluginAddress`), read page by page. A target
   is drawn with `crypto.getRandomValues` and rejection sampling (`crispMaskUtils.drawIndex`), so
@@ -160,3 +182,26 @@ differs:
   member, or none with voting power, fails before anything is encrypted.
 
 The weight randomization does not apply to a mask, which counts nothing.
+
+## Security notes
+
+What the app verifies, and what it takes from the CRISP server or the governance backend.
+
+- **Verified on-chain or locally:** the committee key against its on-chain commitment, the
+  coordinator of the plugin against `crispE3Config`, the circuit preset against the network, the
+  identity of the attested payload against the ballot the wallet built, and the `InputCommitted`
+  event against the same identity before success is reported.
+- **Residual risk, the slot head.** The previous ciphertext the new ballot is added to (the
+  `parentIndexPlusOne` of the slot) is resolved by the CRISP server, as the SDK resolves it. The
+  app does not re-derive it from the chain, so a dishonest server can hand the SDK a stale or
+  wrong head, which the voter cannot tell from the current one. The identity checks above bind the
+  payload to the proof the wallet built, not to the head that proof was built on. The server can
+  also refuse to stage or attest a ballot on either path.
+- **Member list.** The random mask target is drawn from the member list read from the governance
+  backend, which therefore sees that a mask is being prepared for the body and when. The draw itself
+  stays in the browser, and the target is checked on-chain. The read is capped at 100 pages of 50
+  members, beyond which the flow fails instead of paging on.
+- **Relay timing.** The server that relays a ballot sees the slot, the ciphertext and the time of
+  every ballot it stages, with a vote or a mask alike.
+- **Pinned SDK.** `@crisp-e3/sdk` is pinned to an exact version, as it builds the proofs and
+  envelopes the wallet signs and sends.

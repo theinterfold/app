@@ -47,7 +47,7 @@
         "@aragon/assistant-chat": "workspace:*",
         "@aragon/assistant-contracts": "workspace:*",
         "@aragon/gov-ui-kit": "workspace:*",
-        "@crisp-e3/sdk": "^0.28.1",
+        "@crisp-e3/sdk": "0.28.1",
         "@dagrejs/dagre": "^3.1.1",
         "@floating-ui/react": "^0.27.20",
         "@interfold/wasm": "0.20.0-dev.3",

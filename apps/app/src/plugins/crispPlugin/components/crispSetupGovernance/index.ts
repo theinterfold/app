@@ -4,7 +4,4 @@ export const CrispSetupGovernance = dynamic(() =>
     import('./crispSetupGovernance').then((mod) => mod.CrispSetupGovernance),
 );
 
-export type {
-    ICrispSetupGovernanceForm,
-    ICrispSetupGovernanceProps,
-} from './crispSetupGovernance.api';
+export type { ICrispSetupGovernanceForm } from './crispSetupGovernance.api';

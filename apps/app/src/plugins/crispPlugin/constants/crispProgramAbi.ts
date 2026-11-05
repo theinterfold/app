@@ -42,6 +42,23 @@ export const crispProgramAbi = [
         stateMutability: 'view',
     },
     {
+        type: 'event',
+        name: 'InputCommitted',
+        inputs: [
+            { name: 'e3Id', type: 'uint256', indexed: true },
+            { name: 'inputId', type: 'bytes32', indexed: true },
+            { name: 'slotAddress', type: 'address', indexed: true },
+            {
+                name: 'encryptedVoteCommitment',
+                type: 'bytes32',
+                indexed: false,
+            },
+            { name: 'encryptedVoteHash', type: 'bytes32', indexed: false },
+            { name: 'parentIndexPlusOne', type: 'uint40', indexed: false },
+            { name: 'index', type: 'uint40', indexed: false },
+        ],
+    },
+    {
         type: 'function',
         inputs: [{ name: 'e3Id', type: 'uint256' }],
         name: 'votingPowerDivisorOf',

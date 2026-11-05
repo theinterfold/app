@@ -1,1 +1,4 @@
-export { crispBallotUtils } from './crispBallotUtils';
+export {
+    crispBallotUtils,
+    type ICrispCommitmentExpectation,
+} from './crispBallotUtils';
