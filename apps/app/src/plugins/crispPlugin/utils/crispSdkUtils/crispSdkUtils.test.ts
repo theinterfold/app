@@ -5,6 +5,8 @@ import { crispE3Config } from '../../constants/crispE3Config';
 import { crispSdkUtils, type IPrepareBallotParams } from './crispSdkUtils';
 
 const mockSdkPrepareBallot = jest.fn();
+const mockGetSlotHead = jest.fn();
+const mockCreateHttpDaReader = jest.fn();
 const mockFinishBallotProof = jest.fn();
 const mockFinishMaskProof = jest.fn();
 const mockDecodeInputIdentity = jest.fn();
@@ -13,9 +15,9 @@ const mockComputePkCommitment = jest.fn();
 
 // The real SDK initialises WASM at import, which the tests below have no use for.
 jest.mock('@crisp-e3/sdk', () => ({
-    CrispSDK: jest.fn().mockImplementation(() => ({
-        prepareBallot: mockSdkPrepareBallot,
-    })),
+    prepareBallot: (...args: unknown[]) => mockSdkPrepareBallot(...args),
+    getSlotHead: (...args: unknown[]) => mockGetSlotHead(...args),
+    createHttpDaReader: (...args: unknown[]) => mockCreateHttpDaReader(...args),
     registeredPreset: () => 'insecure-64',
     setCircuits: jest.fn(),
     finishBallotProof: (...args: unknown[]) => mockFinishBallotProof(...args),
@@ -228,6 +230,8 @@ describe('crispSdk utils', () => {
 
     describe('prepareBallot', () => {
         const params: IPrepareBallotParams = {
+            network: Network.ETHEREUM_SEPOLIA,
+            programAddress: '0x00000000000000000000000000000000000000b2',
             serverUrl: 'https://crisp.test',
             e3Id: BigInt(7),
             publicKey: new Uint8Array([1]),
@@ -236,13 +240,18 @@ describe('crispSdk utils', () => {
             vote: [0, 0, 0],
             votingPower: BigInt(5),
         };
+        const daReader = { read: jest.fn() };
 
         beforeEach(() => {
             mockSdkPrepareBallot.mockResolvedValue({ ctCommitment: '0x12' });
+            mockCreateHttpDaReader.mockReturnValue(daReader);
+            mockGetSlotHead.mockResolvedValue(undefined);
         });
 
         afterEach(() => {
             mockSdkPrepareBallot.mockReset();
+            mockGetSlotHead.mockReset();
+            mockCreateHttpDaReader.mockReset();
         });
 
         it('encrypts a vote by default', async () => {
@@ -269,6 +278,56 @@ describe('crispSdk utils', () => {
                     censusMode: 'onchain',
                 }),
             );
+        });
+
+        it('reads the slot head from the program events through the RPC proxy, with bytes from the availability store', async () => {
+            await crispSdkUtils.prepareBallot(params);
+
+            expect(mockCreateHttpDaReader).toHaveBeenCalledWith(
+                'https://crisp.test/availability',
+            );
+            expect(mockGetSlotHead).toHaveBeenCalledWith({
+                programAddress: params.programAddress,
+                e3Id: params.e3Id,
+                slot: params.slotAddress,
+                chainId: 11_155_111,
+                rpcUrl: '/api/rpc/11155111',
+                daReader,
+            });
+        });
+
+        it('extends the slot head read from the chain', async () => {
+            const ciphertext = new Uint8Array([9, 9]);
+            mockGetSlotHead.mockResolvedValue({ ciphertext, index: 4 });
+
+            await crispSdkUtils.prepareBallot(params);
+
+            expect(mockSdkPrepareBallot).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    previousCiphertext: ciphertext,
+                    previousIndex: 4,
+                }),
+            );
+        });
+
+        it('starts an empty slot with no parent', async () => {
+            await crispSdkUtils.prepareBallot(params);
+
+            const [inputs] = mockSdkPrepareBallot.mock.calls[0];
+            expect(inputs).not.toHaveProperty('previousCiphertext');
+            expect(inputs).not.toHaveProperty('previousIndex');
+        });
+
+        it('refuses to build a ballot when the slot head cannot be read', async () => {
+            mockGetSlotHead.mockRejectedValue(new Error('hash mismatch'));
+
+            await expect(crispSdkUtils.prepareBallot(params)).rejects.toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.slotHeadUnavailable',
+                }),
+            );
+            expect(mockSdkPrepareBallot).not.toHaveBeenCalled();
         });
     });
 

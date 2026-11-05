@@ -3,6 +3,7 @@ import type {
     CircuitPreset,
     InputIdentity,
     PreparedBallot,
+    SlotHead,
 } from '@crisp-e3/sdk';
 import {
     decodeAbiParameters,
@@ -12,6 +13,7 @@ import {
     size,
 } from 'viem';
 import type { Network } from '@/shared/api/daoService';
+import { networkDefinitions } from '@/shared/constants/networkDefinitions';
 import { crispE3Config } from '../../constants/crispE3Config';
 import { CrispError } from '../../types';
 
@@ -45,7 +47,16 @@ export interface IVerifyCommitteeKeyParams {
 
 export interface IPrepareBallotParams {
     /**
-     * Base URL of the CRISP server of the round.
+     * Network of the round, whose RPC proxy the slot head is read through.
+     */
+    network: Network;
+    /**
+     * Address of the CRISP program of the round, whose events record the entries of the slot.
+     */
+    programAddress: Hex;
+    /**
+     * Base URL of the CRISP server of the round, whose availability store serves the ciphertext of
+     * the slot head. The bytes are checked against their on-chain hash before use.
      */
     serverUrl: string;
     /**
@@ -294,11 +305,17 @@ class CrispSdkUtils {
     /**
      * First phase of a ballot: encrypts it under the committee key, before the voter signs. The
      * digest the voter signs commits to this exact ciphertext.
+     *
+     * The slot head the ballot extends is resolved from the program's events rather than taken from
+     * the CRISP server, which could otherwise hand out a stale head and have the ballot silently
+     * dropped from the tally. Only the bytes come from the server, verified against their hash.
      */
     prepareBallot = async (
         params: IPrepareBallotParams,
     ): Promise<PreparedBallot> => {
         const {
+            network,
+            programAddress,
             serverUrl,
             e3Id,
             publicKey,
@@ -311,18 +328,47 @@ class CrispSdkUtils {
 
         await this.ensureCircuits(preset);
 
-        const { CrispSDK } = await import('@crisp-e3/sdk');
+        const { createHttpDaReader, getSlotHead, prepareBallot } = await import(
+            '@crisp-e3/sdk'
+        );
+        const chainId = networkDefinitions[network].id;
 
-        return new CrispSDK(serverUrl).prepareBallot({
-            e3Id,
+        let head: SlotHead | undefined;
+        try {
+            head = await getSlotHead({
+                programAddress,
+                e3Id,
+                slot: slotAddress,
+                chainId,
+                rpcUrl: `/api/rpc/${chainId.toString()}`,
+                daReader: createHttpDaReader(`${serverUrl}/availability`),
+            });
+        } catch (error) {
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.slotHeadUnavailable',
+                { cause: error },
+            );
+        }
+
+        const inputs = {
             publicKey,
             slotAddress,
             isMaskVote,
             numOptions: vote.length,
             vote,
-            censusMode: 'onchain',
+            censusMode: 'onchain' as const,
             votingPower,
-        });
+        };
+
+        return prepareBallot(
+            head == null
+                ? inputs
+                : {
+                      ...inputs,
+                      previousCiphertext: head.ciphertext,
+                      previousIndex: head.index,
+                  },
+        );
     };
 
     /**
