@@ -7,11 +7,11 @@ export const crispPlugin: IPluginInfo = {
     name: 'CRISP',
     installVersion: {
         release: 1,
-        build: 1,
+        build: 2,
         releaseNotes:
-            'https://github.com/gnosisguild/crisp-aragon-plugin/releases/tag/v1.1',
+            'https://github.com/gnosisguild/crisp-aragon-plugin/releases',
         description:
-            'This is the initial release of the CRISP private voting plugin.',
+            'Adds a proposal-creation condition, so a staged process can require the same voting power to create a proposal as the plugin does.',
     },
     // The plugin is hidden on networks with a zero repository address, it needs a live Interfold
     // deployment (see crispE3Config)
