@@ -58,7 +58,7 @@ describe('crispBallotWeight utils', () => {
         it('refuses a voter without voting power', () => {
             expect(() =>
                 crispBallotWeightUtils.chooseWeight(BigInt(0), true),
-            ).toThrow(/No voting power/);
+            ).toThrow();
         });
     });
 
@@ -80,19 +80,34 @@ describe('crispBallotWeight utils', () => {
                     ...identity,
                     roundId: '8',
                 }),
-            ).toThrow(/Review the ballot/);
+            ).toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.reviewInvalid',
+                }),
+            );
             expect(() =>
                 crispBallotWeightUtils.assertReviewed(review, {
                     ...identity,
                     voter: '0x0000000000000000000000000000000000000002',
                 }),
-            ).toThrow(/Review the ballot/);
+            ).toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.reviewInvalid',
+                }),
+            );
             expect(() =>
                 crispBallotWeightUtils.assertReviewed(review, {
                     ...identity,
                     available: BigInt(900),
                 }),
-            ).toThrow(/Review the ballot/);
+            ).toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.reviewInvalid',
+                }),
+            );
         });
 
         it('rejects a weight outside the allowed band', () => {

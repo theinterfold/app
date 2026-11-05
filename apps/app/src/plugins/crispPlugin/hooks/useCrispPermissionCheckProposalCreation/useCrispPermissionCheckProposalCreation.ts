@@ -30,12 +30,9 @@ export const useCrispPermissionCheckProposalCreation = (
     const { minProposerVotingPower, token } = plugin.settings;
     const { decimals: tokenDecimals, symbol: tokenSymbol } = token;
 
-    const parsedMinVotingPower = formatUnits(
-        bigIntUtils.safeParse(minProposerVotingPower),
-        tokenDecimals,
-    );
+    const minVotingPower = bigIntUtils.safeParse(minProposerVotingPower);
     const formattedMinVotingPower = formatterUtils.formatNumber(
-        parsedMinVotingPower,
+        formatUnits(minVotingPower, tokenDecimals),
         { format: NumberFormat.TOKEN_AMOUNT_SHORT },
     );
 
@@ -52,9 +49,8 @@ export const useCrispPermissionCheckProposalCreation = (
     );
 
     const userVotingPower = bigIntUtils.safeParse(member?.votingPower);
-    const parsedMemberVotingPower = formatUnits(userVotingPower, tokenDecimals);
     const formattedMemberVotingPower = formatterUtils.formatNumber(
-        parsedMemberVotingPower,
+        formatUnits(userVotingPower, tokenDecimals),
         { format: NumberFormat.TOKEN_AMOUNT_SHORT },
     );
 
@@ -86,7 +82,6 @@ export const useCrispPermissionCheckProposalCreation = (
         ? defaultSettings.concat(connectedUserSettings)
         : defaultSettings;
 
-    const minVotingPower = bigIntUtils.safeParse(minProposerVotingPower);
     const isRestricted = minVotingPower > BigInt(0);
 
     return {

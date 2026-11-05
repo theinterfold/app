@@ -1,21 +1,24 @@
+import type { ITFuncOptions } from '@/shared/utils/translationsUtils';
+import { CrispError } from '../../types';
+
 /**
  * Error of a failed request to the CRISP server, carrying the reason the server gave. Error bodies
  * are not uniform (a JSON object with `message`, `response` or `error`, a bare JSON string or plain
  * text), so all are read, falling back to a sentence derived from the status.
  */
-export class CrispServiceError extends Error {
+export class CrispServiceError extends CrispError {
     private static statusFallbacks: Record<number, string> = {
-        400: 'The CRISP server rejected the request as invalid.',
-        404: 'The CRISP server has no record of this request.',
-        429: 'Too many requests to the CRISP server. Wait a moment and try again.',
-        503: 'The CRISP server is temporarily unavailable. Try again shortly.',
-        504: 'The CRISP server timed out. Try again.',
+        400: 'app.plugins.crisp.crispSubmitVoteDialog.error.serverInvalidRequest',
+        404: 'app.plugins.crisp.crispSubmitVoteDialog.error.serverNotFound',
+        429: 'app.plugins.crisp.crispSubmitVoteDialog.error.serverRateLimited',
+        503: 'app.plugins.crisp.crispSubmitVoteDialog.error.serverUnavailable',
+        504: 'app.plugins.crisp.crispSubmitVoteDialog.error.serverTimeout',
     };
 
     readonly status: number;
 
-    constructor(message: string, status: number) {
-        super(message);
+    constructor(errorKey: string, status: number, params?: ITFuncOptions) {
+        super(errorKey, { params });
 
         this.name = 'CrispServiceError';
         this.status = status;
@@ -25,12 +28,22 @@ export class CrispServiceError extends Error {
         response: Response,
     ): Promise<CrispServiceError> => {
         const text = await response.text().catch(() => '');
-        const message =
-            CrispServiceError.parseMessage(text) ??
-            CrispServiceError.statusFallbacks[response.status] ??
-            `The CRISP server rejected the request (HTTP ${String(response.status)}).`;
+        const reason = CrispServiceError.parseMessage(text);
 
-        return new CrispServiceError(message, response.status);
+        if (reason != null) {
+            return new CrispServiceError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.serverReason',
+                response.status,
+                { reason },
+            );
+        }
+
+        return new CrispServiceError(
+            CrispServiceError.statusFallbacks[response.status] ??
+                'app.plugins.crisp.crispSubmitVoteDialog.error.serverRejected',
+            response.status,
+            { status: response.status },
+        );
     };
 
     static isNotFoundError = (error: unknown): error is CrispServiceError =>

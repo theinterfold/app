@@ -1,6 +1,7 @@
 import type {
     CircuitBundle,
     CircuitPreset,
+    InputIdentity,
     PreparedBallot,
 } from '@crisp-e3/sdk';
 import {
@@ -10,6 +11,9 @@ import {
     parseAbiParameters,
     size,
 } from 'viem';
+import type { Network } from '@/shared/api/daoService';
+import { crispE3Config } from '../../constants/crispE3Config';
+import { CrispError } from '../../types';
 
 /**
  * BFV parameters of a round as published on-chain in `Interfold.paramSetRegistry`.
@@ -25,6 +29,10 @@ export interface IVerifyCommitteeKeyParams {
      * Serialized BFV public key to verify, as served by the CRISP server.
      */
     publicKey: Uint8Array;
+    /**
+     * Network of the round, whose configuration lists the presets a round may run under.
+     */
+    network: Network;
     /**
      * Commitment to the committee key recorded on-chain in the E3 record of the round.
      */
@@ -142,24 +150,27 @@ class CrispSdkUtils {
     verifyCommitteeKey = async (
         params: IVerifyCommitteeKeyParams,
     ): Promise<CircuitPreset> => {
-        const { publicKey, committeeKeyCommitment, encodedParams } = params;
+        const { network, publicKey, committeeKeyCommitment, encodedParams } =
+            params;
 
         if (publicKey.length === 0) {
-            throw new Error('The committee public key is empty.');
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.committeeKeyEmpty',
+            );
         }
 
         if (
             size(committeeKeyCommitment) !== 32 ||
             BigInt(committeeKeyCommitment) === BigInt(0)
         ) {
-            throw new Error(
-                'The round has no committee key commitment on-chain yet.',
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.committeeKeyNotCommitted',
             );
         }
 
         if (encodedParams === '0x') {
-            throw new Error(
-                "This round's encryption parameters are not registered on-chain.",
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.paramsNotRegistered',
             );
         }
 
@@ -193,8 +204,18 @@ class CrispSdkUtils {
         });
 
         if (presetName == null) {
-            throw new Error(
-                "This round's encryption parameters do not match any parameter set this app can verify.",
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.paramsUnsupported',
+            );
+        }
+
+        const preset = circuitPresets[presetName];
+
+        // The insecure preset has no place on a network where real value is at stake.
+        if (!crispE3Config[network]?.allowedPresets.includes(preset)) {
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.presetNotAllowed',
+                { params: { preset } },
             );
         }
 
@@ -208,11 +229,9 @@ class CrispSdkUtils {
                 BigUint64Array.from(bfvParams.moduli),
             );
         } catch (error) {
-            throw new Error(
-                'The committee public key is not a valid BFV key.',
-                {
-                    cause: error,
-                },
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.committeeKeyInvalid',
+                { cause: error },
             );
         }
 
@@ -224,12 +243,12 @@ class CrispSdkUtils {
             );
 
         if (!matches) {
-            throw new Error(
-                'The committee public key does not match the commitment recorded on-chain.',
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.committeeKeyMismatch',
             );
         }
 
-        return circuitPresets[presetName];
+        return preset;
     };
 
     /**
@@ -246,14 +265,16 @@ class CrispSdkUtils {
         }
 
         if (active != null) {
-            throw new Error(
-                `Circuits for ${active} are already loaded; this round needs ${preset}. Reload the page before voting on it.`,
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.circuitsLoaded',
+                { params: { active, preset } },
             );
         }
 
         if (this.loading != null && this.loading.preset !== preset) {
-            throw new Error(
-                `Circuits for ${this.loading.preset} are still loading; this round needs ${preset}. Try again shortly.`,
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.circuitsLoading',
+                { params: { loading: this.loading.preset, preset } },
             );
         }
 
@@ -332,6 +353,16 @@ class CrispSdkUtils {
         const proof = await finishMaskProof(prepared, digest);
 
         return encodeSolidityProof(proof);
+    };
+
+    /**
+     * Reads the identity of an input (slot, ciphertext commitment, ciphertext hash and parent) from
+     * the envelope the SDK builds.
+     */
+    decodeInputIdentity = async (encodedProof: Hex): Promise<InputIdentity> => {
+        const { decodeInputIdentity } = await import('@crisp-e3/sdk');
+
+        return decodeInputIdentity(encodedProof);
     };
 }
 

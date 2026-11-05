@@ -1,3 +1,5 @@
+import { CrispError } from '../../types';
+
 export interface ICrispBallotWeight {
     /**
      * Round the weight was chosen for, as a decimal string.
@@ -23,9 +25,6 @@ export interface ICrispBallotWeight {
 
 // Voting powers below this many ballot units have no smaller whole number within 1%.
 const minRandomizablePower = BigInt(100);
-
-const reviewError =
-    'Your voting power changed or the review is invalid. Review the ballot and submit again.';
 
 /**
  * The weight a ballot counts, which can be a little below the voting power the proof names.
@@ -101,7 +100,9 @@ class CrispBallotWeightUtils {
             weight.voter.toLowerCase() !== current.voter.toLowerCase() ||
             weight.available !== current.available
         ) {
-            throw new Error(reviewError);
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.reviewInvalid',
+            );
         }
 
         const { counted, available, randomize } = weight;
@@ -112,7 +113,9 @@ class CrispBallotWeightUtils {
                 : counted === available;
 
         if (counted <= BigInt(0) || !isWithinBand) {
-            throw new Error(reviewError);
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.reviewInvalid',
+            );
         }
 
         return counted;

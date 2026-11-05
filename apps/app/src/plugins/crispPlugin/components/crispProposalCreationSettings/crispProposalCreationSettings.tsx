@@ -3,23 +3,13 @@
 import { CheckboxCard } from '@aragon/gov-ui-kit';
 import { useEffect } from 'react';
 import type { ISetupBodyForm } from '@/modules/createDao/dialogs/setupBodyDialog';
-import type { IPluginProposalCreationSettingsParams } from '@/modules/createDao/types';
 import { BodyType } from '@/modules/createDao/types/enum';
-import { TokenProposalCreationSettings } from '@/plugins/tokenPlugin/components/tokenProposalCreationSettings';
-import type { ITokenSetupGovernanceForm } from '@/plugins/tokenPlugin/components/tokenSetupGovernance';
-import type {
-    ITokenSetupMembershipForm,
-    ITokenSetupMembershipMember,
-} from '@/plugins/tokenPlugin/components/tokenSetupMembership';
+import {
+    type ITokenProposalCreationSettingsProps,
+    TokenProposalCreationSettings,
+} from '@/plugins/tokenPlugin/components/tokenProposalCreationSettings';
 import { useTranslations } from '@/shared/components/translationsProvider';
 import { useFormField } from '@/shared/hooks/useFormField';
-
-export interface ICrispProposalCreationSettingsProps
-    extends IPluginProposalCreationSettingsParams<
-        ITokenSetupGovernanceForm,
-        ITokenSetupMembershipMember,
-        ITokenSetupMembershipForm
-    > {}
 
 /**
  * In a staged process the proposal creation rule is built from the condition contracts installed
@@ -27,7 +17,7 @@ export interface ICrispProposalCreationSettingsProps
  * process the plugin itself enforces the voting power of the proposer, as the token plugin does.
  */
 export const CrispProposalCreationSettings: React.FC<
-    ICrispProposalCreationSettingsProps
+    ITokenProposalCreationSettingsProps
 > = (props) => {
     const { body, formPrefix } = props;
 

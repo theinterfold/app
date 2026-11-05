@@ -1,19 +1,19 @@
 'use client';
 
 import { InputContainer } from '@aragon/gov-ui-kit';
+import type { ITokenSetupGovernanceProps } from '@/plugins/tokenPlugin/components/tokenSetupGovernance';
 import { MinParticipationField } from '@/plugins/tokenPlugin/components/tokenSetupGovernance/fields/minParticipationField';
 import { ProposalCreationEligibilityField } from '@/plugins/tokenPlugin/components/tokenSetupGovernance/fields/proposalCreationEligibilityField';
 import { SupportThresholdField } from '@/plugins/tokenPlugin/components/tokenSetupGovernance/fields/supportThresholdField';
 import { AdvancedDateInputDuration } from '@/shared/components/forms/advancedDateInput/advancedDateInputDuration';
 import { useTranslations } from '@/shared/components/translationsProvider';
 import { CrispMinVoterVotingPowerField } from '../crispMinVoterVotingPowerField';
-import type { ICrispSetupGovernanceProps } from './crispSetupGovernance.api';
 
 // Lower minimum than the other plugins, to allow short rounds
 const voteDurationMin = { days: 0, hours: 0, minutes: 15 };
 const voteDurationDefault = { days: 1, hours: 0, minutes: 0 };
 
-export const CrispSetupGovernance: React.FC<ICrispSetupGovernanceProps> = (
+export const CrispSetupGovernance: React.FC<ITokenSetupGovernanceProps> = (
     props,
 ) => {
     const {

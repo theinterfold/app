@@ -1,11 +1,13 @@
-import type { Hex } from 'viem';
+import { type Hex, isAddressEqual } from 'viem';
 import { readContract } from 'wagmi/actions';
 import { wagmiConfig } from '@/modules/application/constants/wagmi';
 import type { Network } from '@/shared/api/daoService';
 import { networkDefinitions } from '@/shared/constants/networkDefinitions';
+import { crispE3Config } from '../../constants/crispE3Config';
 import { crispInterfoldAbi } from '../../constants/crispInterfoldAbi';
 import { crispProgramAbi } from '../../constants/crispProgramAbi';
 import { crispVotesTokenAbi } from '../../constants/crispVotesTokenAbi';
+import { CrispError } from '../../types';
 import { crispPluginAbi } from '../crispTransactionUtils/crispPluginAbi';
 
 // `CRISPProgram.CensusMode.ONCHAIN`: the program reads the voting power of each voter from the
@@ -77,6 +79,9 @@ class CrispRoundUtils {
      * Reads the E3 record of a round through the coordinator of the plugin that requested it. The
      * CRISP program is resolved from the record, as the E3 is the authority on which program runs
      * a round.
+     *
+     * @throws When the coordinator of the plugin is not the one configured for the network, as the
+     * program it names would then be one the app has no reason to trust.
      */
     readE3Record = async (params: {
         network: Network;
@@ -92,6 +97,17 @@ class CrispRoundUtils {
             abi: crispPluginAbi,
             functionName: 'interfold',
         });
+
+        const expectedInterfold = crispE3Config[network]?.interfoldAddress;
+
+        if (
+            expectedInterfold == null ||
+            !isAddressEqual(interfoldAddress, expectedInterfold)
+        ) {
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.interfoldUnexpected',
+            );
+        }
 
         const e3 = await readContract(wagmiConfig, {
             address: interfoldAddress,
@@ -126,12 +142,11 @@ class CrispRoundUtils {
 
         const [ballotVotingPower, snapshot, votingPowerDivisor] =
             await Promise.all([
-                readContract(wagmiConfig, {
-                    address: programAddress,
-                    chainId,
-                    abi: crispProgramAbi,
-                    functionName: 'votingPowerOf',
-                    args: [e3Id, slot],
+                this.readSlotVotingPower({
+                    network,
+                    programAddress,
+                    e3Id,
+                    slot,
                 }),
                 readContract(wagmiConfig, {
                     address: programAddress,
@@ -221,12 +236,11 @@ class CrispRoundUtils {
                     functionName: 'censusModeOf',
                     args: [e3Id],
                 }),
-                readContract(wagmiConfig, {
-                    address: programAddress,
-                    chainId,
-                    abi: crispProgramAbi,
-                    functionName: 'votingPowerOf',
-                    args: [e3Id, slot],
+                this.readSlotVotingPower({
+                    network,
+                    programAddress,
+                    e3Id,
+                    slot,
                 }),
                 readContract(wagmiConfig, {
                     address: programAddress,
@@ -246,27 +260,31 @@ class CrispRoundUtils {
 
         // Merkle census rounds need a proof the plugin never requests.
         if (Number(censusMode) !== onchainCensusMode) {
-            throw new Error(
-                'This round does not read voting power on-chain, which is the only kind of round this app can vote in.',
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.censusNotOnchain',
             );
         }
 
         if (votingPower === BigInt(0)) {
-            throw new Error(
+            throw new CrispError(
                 isOwnSlot
-                    ? 'Your address holds no voting power in this round, so it cannot vote or mask.'
-                    : 'The address to mask holds no voting power in this round, so its slot cannot be masked.',
+                    ? 'app.plugins.crisp.crispSubmitVoteDialog.error.noVotingPower'
+                    : 'app.plugins.crisp.crispSubmitVoteDialog.error.noVotingPowerMaskTarget',
             );
         }
 
         const now = BigInt(Math.floor(Date.now() / 1000));
 
         if (now < inputWindow[0]) {
-            throw new Error('Voting has not started yet.');
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.votingNotStarted',
+            );
         }
 
         if (now >= commitmentDeadline) {
-            throw new Error('The deadline for submitting ballots has passed.');
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.deadlinePassed',
+            );
         }
 
         return { ...record, votingPower, commitmentDeadline, encodedParams };

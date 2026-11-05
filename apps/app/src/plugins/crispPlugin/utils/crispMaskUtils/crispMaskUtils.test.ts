@@ -72,9 +72,7 @@ describe('crispMask utils', () => {
         it.each([0, -1, 1.5])(
             'refuses to draw from a length of %s',
             (length) => {
-                expect(() => crispMaskUtils.drawIndex(length)).toThrow(
-                    /nothing to draw/,
-                );
+                expect(() => crispMaskUtils.drawIndex(length)).toThrow();
             },
         );
     });
@@ -247,6 +245,42 @@ describe('crispMask utils', () => {
         });
     });
 
+    describe('fetchMembers limit', () => {
+        const fetchMembers = () =>
+            crispMaskUtils.fetchMembers({ daoId: 'dao-id', pluginAddress });
+
+        const mockTotalPages = (totalPages: number) =>
+            getMemberListSpy.mockResolvedValue(
+                generatePaginatedResponse({
+                    data: [generateMember({ address: members[0] })],
+                    metadata: generatePaginatedResponseMetadata({
+                        page: 1,
+                        totalPages,
+                    }),
+                }),
+            );
+
+        it('reads a list of the largest size it accepts', async () => {
+            mockTotalPages(100);
+
+            await expect(fetchMembers()).resolves.toEqual([members[0]]);
+            expect(getMemberListSpy).toHaveBeenCalledTimes(100);
+        });
+
+        it('fails clearly, without reading further pages, above the largest list it accepts', async () => {
+            mockTotalPages(101);
+
+            await expect(fetchMembers()).rejects.toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.tooManyMaskMembers',
+                    params: { max: 5000 },
+                }),
+            );
+            expect(getMemberListSpy).toHaveBeenCalledTimes(1);
+        });
+    });
+
     describe('pickMaskTarget', () => {
         const params = {
             network: Network.ETHEREUM_SEPOLIA,
@@ -296,7 +330,10 @@ describe('crispMask utils', () => {
             mockMembers([]);
 
             await expect(crispMaskUtils.pickMaskTarget(params)).rejects.toThrow(
-                /no members/,
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.noMaskMembers',
+                }),
             );
             expect(readSlotPowerSpy).not.toHaveBeenCalled();
         });
@@ -307,7 +344,10 @@ describe('crispMask utils', () => {
             readSlotPowerSpy.mockResolvedValue(BigInt(0));
 
             await expect(crispMaskUtils.pickMaskTarget(params)).rejects.toThrow(
-                /No member holds voting power/,
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.noEligibleMaskMember',
+                }),
             );
         });
     });

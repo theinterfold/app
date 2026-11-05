@@ -1,16 +1,32 @@
-import { BaseError, ContractFunctionRevertedError, type Hex } from 'viem';
+import type { InputIdentity } from '@crisp-e3/sdk';
+import {
+    BaseError,
+    ContractFunctionRevertedError,
+    decodeAbiParameters,
+    type Hex,
+    isAddressEqual,
+    isHash,
+    parseAbiParameters,
+    parseEventLogs,
+    type TransactionReceipt,
+} from 'viem';
+import { waitForTransactionReceipt } from 'wagmi/actions';
+import { wagmiConfig } from '@/modules/application/constants/wagmi';
 import type { Network } from '@/shared/api/daoService';
+import { networkDefinitions } from '@/shared/constants/networkDefinitions';
 import {
     CrispServiceError,
     crispService,
     type ICrispVoteResponse,
 } from '../../api/crispService';
+import { crispProgramAbi } from '../../constants/crispProgramAbi';
+import { CrispError } from '../../types';
 
 export type CrispCommitmentStep =
     /**
-     * The commitment is on-chain. The hash is null when the server did not send it.
+     * The server reports the commitment on-chain. The hash is null when the server did not send it.
      */
-    | { action: 'committed'; transactionHash: string | null }
+    | { action: 'committed'; transactionHash: Hex | null }
     /**
      * The voter's wallet sends the attested payload.
      */
@@ -23,7 +39,22 @@ interface IWaitStep {
 
 interface IErrorStep {
     action: 'error';
-    reason: string;
+    error: CrispError;
+}
+
+export interface ICrispCommitmentExpectation {
+    /**
+     * CRISP program that must have recorded the commitment.
+     */
+    programAddress: Hex;
+    /**
+     * Round the commitment belongs to.
+     */
+    e3Id: bigint;
+    /**
+     * Identity of the ballot the voter built, as read from the proof that was staged.
+     */
+    identity: InputIdentity;
 }
 
 export interface IFollowStagedBallotParams {
@@ -50,22 +81,41 @@ export interface IFollowStagedBallotParams {
 const pollInterval = 5000;
 const waitTimeout = 600_000;
 
-const revertReasons: Record<string, string> = {
-    E3NotAcceptingInputs: 'Voting has not started yet.',
-    KeyNotPublished: 'The ciphernode committee has not published its key yet.',
+// How long a relayed transaction is awaited for confirmation of the commitment once the server
+// reported its hash.
+const confirmationTimeout = 180_000;
+
+// Layout `CRISPProgram.publishInput` decodes: the envelope of the SDK (proof, slot, ciphertext
+// commitment, ciphertext hash, parent index plus one) followed by the expiry and the signature of
+// the data-availability attestation the server adds. It differs from the envelope that the
+// `decodeInputIdentity` of the SDK reads, which ends after the ciphertext.
+const attestedPayloadAbi = parseAbiParameters(
+    'bytes, address, bytes32, bytes32, uint40, uint64, bytes',
+);
+
+const revertErrorKeys: Record<string, string> = {
+    E3NotAcceptingInputs:
+        'app.plugins.crisp.crispSubmitVoteDialog.error.votingNotStarted',
+    KeyNotPublished:
+        'app.plugins.crisp.crispSubmitVoteDialog.error.keyNotPublished',
     InputCommitmentDeadlinePassed:
-        'The deadline for submitting ballots has passed.',
-    InputDeadlinePassed: 'The deadline for submitting ballots has passed.',
-    InputAlreadyCommitted: 'This ballot was already submitted.',
+        'app.plugins.crisp.crispSubmitVoteDialog.error.deadlinePassed',
+    InputDeadlinePassed:
+        'app.plugins.crisp.crispSubmitVoteDialog.error.deadlinePassed',
+    InputAlreadyCommitted:
+        'app.plugins.crisp.crispSubmitVoteDialog.error.alreadySubmitted',
     InputAvailabilityAttestationExpired:
-        'The server attestation of this ballot expired. Submit the ballot again.',
+        'app.plugins.crisp.crispSubmitVoteDialog.error.attestationExpired',
     InvalidInputAvailabilityAttestation:
-        'The server attestation of this ballot was rejected. Submit the ballot again.',
-    InvalidNoirProof: 'The CRISP contract rejected the proof of this ballot.',
-    SlotNotEligible: 'Your address has no voting power in this round.',
+        'app.plugins.crisp.crispSubmitVoteDialog.error.attestationRejected',
+    InvalidNoirProof:
+        'app.plugins.crisp.crispSubmitVoteDialog.error.proofRejected',
+    SlotNotEligible:
+        'app.plugins.crisp.crispSubmitVoteDialog.error.slotNotEligible',
     UnknownParentInput:
-        'Your earlier ballot changed while this one was prepared. Submit the ballot again.',
-    InputLimitReached: 'This round cannot accept any more ballots.',
+        'app.plugins.crisp.crispSubmitVoteDialog.error.parentInputChanged',
+    InputLimitReached:
+        'app.plugins.crisp.crispSubmitVoteDialog.error.inputLimitReached',
 };
 
 /**
@@ -132,8 +182,8 @@ class CrispBallotUtils {
             const read = await this.readJob(network, step.jobId);
 
             if (read.job === null) {
-                throw new Error(
-                    'The server no longer has this ballot. Submit it again.',
+                throw new CrispError(
+                    'app.plugins.crisp.crispSubmitVoteDialog.error.ballotGone',
                 );
             }
 
@@ -143,8 +193,8 @@ class CrispBallotUtils {
             } else if (Date.now() >= deadline) {
                 throw (
                     read.error ??
-                    new Error(
-                        'The server has not processed this ballot yet. Try again later.',
+                    new CrispError(
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.ballotNotProcessed',
                     )
                 );
             } else {
@@ -155,10 +205,134 @@ class CrispBallotUtils {
         }
 
         if (step.action === 'error') {
-            throw new Error(step.reason);
+            throw step.error;
         }
 
         return step;
+    };
+
+    /**
+     * Validates a transaction hash reported by the server before it is read from the chain or
+     * linked to.
+     */
+    parseTransactionHash = (value?: string | null): Hex | undefined =>
+        value != null && isHash(value) ? value : undefined;
+
+    /**
+     * Requires the payload the server attested to carry the same input identity as the ballot the
+     * voter built, so the wallet never sends a ballot other than the one reviewed, signed and
+     * proved. The proof itself is verified by the program, the identity is what it is bound to.
+     *
+     * @throws When the payload is malformed or names another input.
+     */
+    assertAttestedPayload = (params: {
+        identity: InputIdentity;
+        payload: Hex;
+    }): void => {
+        const { identity, payload } = params;
+
+        let slotAddress: Hex;
+        let encryptedVoteCommitment: Hex;
+        let encryptedVoteHash: Hex;
+        let parentIndexPlusOne: number;
+
+        try {
+            [
+                ,
+                slotAddress,
+                encryptedVoteCommitment,
+                encryptedVoteHash,
+                parentIndexPlusOne,
+            ] = decodeAbiParameters(attestedPayloadAbi, payload);
+        } catch (error) {
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.attestedPayloadMismatch',
+                { cause: error },
+            );
+        }
+
+        if (
+            !isAddressEqual(slotAddress, identity.slotAddress) ||
+            encryptedVoteCommitment.toLowerCase() !==
+                identity.encryptedVoteCommitment.toLowerCase() ||
+            encryptedVoteHash.toLowerCase() !==
+                identity.encryptedVoteHash.toLowerCase() ||
+            parentIndexPlusOne !== identity.parentIndexPlusOne
+        ) {
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.attestedPayloadMismatch',
+            );
+        }
+    };
+
+    /**
+     * Requires the receipt to be a success that holds the `InputCommitted` event of the CRISP
+     * program for the round, the slot and the ciphertext commitment of the voter's ballot.
+     *
+     * @throws When the transaction reverted or committed something else.
+     */
+    assertCommitted = (params: {
+        receipt: TransactionReceipt;
+        expectation: ICrispCommitmentExpectation;
+    }): void => {
+        const { receipt, expectation } = params;
+        const { programAddress, e3Id, identity } = expectation;
+
+        if (receipt.status !== 'success') {
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.transactionReverted',
+            );
+        }
+
+        const isCommitted = parseEventLogs({
+            abi: crispProgramAbi,
+            eventName: 'InputCommitted',
+            logs: receipt.logs,
+        }).some(
+            ({ address, args }) =>
+                isAddressEqual(address, programAddress) &&
+                args.e3Id === e3Id &&
+                isAddressEqual(args.slotAddress, identity.slotAddress) &&
+                args.encryptedVoteCommitment.toLowerCase() ===
+                    identity.encryptedVoteCommitment.toLowerCase(),
+        );
+
+        if (!isCommitted) {
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.commitmentNotFound',
+            );
+        }
+    };
+
+    /**
+     * Confirms on-chain that the transaction the server reported committed the ballot of the voter,
+     * as the word of the server is not enough to report a ballot as submitted.
+     *
+     * @throws When the transaction cannot be read in time, reverted or committed something else.
+     */
+    confirmRelayedCommitment = async (params: {
+        network: Network;
+        transactionHash: Hex;
+        expectation: ICrispCommitmentExpectation;
+    }): Promise<void> => {
+        const { network, transactionHash, expectation } = params;
+
+        let receipt: TransactionReceipt;
+
+        try {
+            receipt = await waitForTransactionReceipt(wagmiConfig, {
+                hash: transactionHash,
+                chainId: networkDefinitions[network].id,
+                timeout: confirmationTimeout,
+            });
+        } catch (error) {
+            throw new CrispError(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.commitmentUnconfirmed',
+                { cause: error },
+            );
+        }
+
+        this.assertCommitted({ receipt, expectation });
     };
 
     /**
@@ -177,10 +351,10 @@ class CrispBallotUtils {
                     : undefined;
 
             if (errorName != null) {
-                return new Error(
-                    revertReasons[errorName] ??
-                        `The CRISP contract rejected the transaction (${errorName}).`,
-                    { cause: error },
+                return new CrispError(
+                    revertErrorKeys[errorName] ??
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.contractRejected',
+                    { params: { errorName }, cause: error },
                 );
             }
 
@@ -220,26 +394,32 @@ class CrispBallotUtils {
         view: ICrispVoteResponse,
     ): CrispCommitmentStep | IWaitStep | IErrorStep => {
         if (view.status === 'failed_broadcast') {
-            return {
-                action: 'error',
-                reason:
-                    view.message ?? 'The server could not submit this ballot.',
-            };
+            return this.buildErrorStep(
+                view,
+                'app.plugins.crisp.crispSubmitVoteDialog.error.broadcastFailed',
+            );
         }
 
         if (view.tx_hash != null) {
-            return { action: 'committed', transactionHash: view.tx_hash };
+            const transactionHash = this.parseTransactionHash(view.tx_hash);
+
+            return transactionHash != null
+                ? { action: 'committed', transactionHash }
+                : {
+                      action: 'error',
+                      error: new CrispError(
+                          'app.plugins.crisp.crispSubmitVoteDialog.error.transactionHashInvalid',
+                      ),
+                  };
         }
 
         if (view.status === 'pending_commitment') {
             return view.job_id != null
                 ? { action: 'wait', jobId: view.job_id }
-                : {
-                      action: 'error',
-                      reason:
-                          view.message ??
-                          'The server did not return a job for this ballot.',
-                  };
+                : this.buildErrorStep(
+                      view,
+                      'app.plugins.crisp.crispSubmitVoteDialog.error.noJob',
+                  );
         }
 
         if (view.status === 'ready_for_commitment' && view.encoded_proof) {
@@ -255,13 +435,26 @@ class CrispBallotUtils {
             return { action: 'committed', transactionHash: null };
         }
 
-        return {
-            action: 'error',
-            reason:
-                view.message ??
-                'The server has not returned an attested payload for this ballot yet.',
-        };
+        return this.buildErrorStep(
+            view,
+            'app.plugins.crisp.crispSubmitVoteDialog.error.noPayload',
+        );
     };
+
+    // The reason the server gave wins over the sentence derived from the state of the job.
+    private buildErrorStep = (
+        view: ICrispVoteResponse,
+        fallbackKey: string,
+    ): IErrorStep => ({
+        action: 'error',
+        error:
+            view.message != null
+                ? new CrispError(
+                      'app.plugins.crisp.crispSubmitVoteDialog.error.serverReason',
+                      { params: { reason: view.message } },
+                  )
+                : new CrispError(fallbackKey),
+    });
 }
 
 export const crispBallotUtils = new CrispBallotUtils();
