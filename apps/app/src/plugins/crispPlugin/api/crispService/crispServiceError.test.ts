@@ -6,7 +6,7 @@ const buildResponse = (status: number, body = '') =>
 
 describe('CrispServiceError', () => {
     describe('fromResponse', () => {
-        it('reads the message of a ballot rejection', async () => {
+        it('reads the reason of a ballot rejection', async () => {
             const response = buildResponse(
                 429,
                 JSON.stringify({
@@ -17,9 +17,12 @@ describe('CrispServiceError', () => {
 
             const error = await CrispServiceError.fromResponse(response);
 
-            expect(error.message).toEqual(
-                'Too many votes from this address, slow down',
+            expect(error.errorKey).toEqual(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.serverReason',
             );
+            expect(error.params).toEqual({
+                reason: 'Too many votes from this address, slow down',
+            });
             expect(error.status).toEqual(429);
         });
 
@@ -34,7 +37,7 @@ describe('CrispServiceError', () => {
 
             const error = await CrispServiceError.fromResponse(response);
 
-            expect(error.message).toMatch(/not available yet/);
+            expect(error.params?.reason).toMatch(/not available yet/);
             expect(CrispServiceError.isNotFoundError(error)).toBe(true);
         });
 
@@ -46,11 +49,11 @@ describe('CrispServiceError', () => {
                 buildResponse(503, 'Service unavailable'),
             );
 
-            expect(json.message).toEqual('Invalid round id');
-            expect(text.message).toEqual('Service unavailable');
+            expect(json.params).toEqual({ reason: 'Invalid round id' });
+            expect(text.params).toEqual({ reason: 'Service unavailable' });
         });
 
-        it('falls back to a sentence derived from the status for an empty body', async () => {
+        it('falls back to a translation key derived from the status for an empty body', async () => {
             const notFound = await CrispServiceError.fromResponse(
                 buildResponse(404),
             );
@@ -58,8 +61,13 @@ describe('CrispServiceError', () => {
                 buildResponse(418),
             );
 
-            expect(notFound.message).toMatch(/no record/);
-            expect(unknown.message).toMatch(/HTTP 418/);
+            expect(notFound.errorKey).toEqual(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.serverNotFound',
+            );
+            expect(unknown.errorKey).toEqual(
+                'app.plugins.crisp.crispSubmitVoteDialog.error.serverRejected',
+            );
+            expect(unknown.params).toEqual({ status: 418 });
         });
     });
 

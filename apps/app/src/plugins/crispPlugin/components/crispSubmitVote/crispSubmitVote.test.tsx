@@ -25,9 +25,7 @@ import { CrispMaskTarget } from '../../types';
 import { CrispSubmitVote, type ICrispSubmitVoteProps } from './crispSubmitVote';
 
 jest.mock('@/modules/governance/components/proposalExecutionStatus', () => ({
-    ProposalExecutionStatus: () => (
-        <div data-testid="proposal-execution-status-mock" />
-    ),
+    ProposalExecutionStatus: () => <p>proposalExecutionStatus</p>,
 }));
 
 describe('<CrispSubmitVote /> component', () => {
@@ -201,9 +199,7 @@ describe('<CrispSubmitVote /> component', () => {
             },
         });
         render(createTestComponent({ proposal }));
-        expect(
-            screen.getByTestId('proposal-execution-status-mock'),
-        ).toBeInTheDocument();
+        expect(screen.getByText('proposalExecutionStatus')).toBeInTheDocument();
         expect(
             screen.queryByRole('button', {
                 name: /crispSubmitVote.buttons.vote/,

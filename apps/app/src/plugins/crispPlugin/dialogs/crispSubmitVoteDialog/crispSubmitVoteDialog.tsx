@@ -29,12 +29,13 @@ import {
     useCrispSubmitVote,
 } from '../../hooks/useCrispSubmitVote';
 import {
+    CrispError,
     CrispMaskTarget,
     CrispSubmitVoteMethod,
     type ICrispProposal,
 } from '../../types';
 
-export interface ICrispSubmitVoteDialogVoteParams {
+interface ICrispSubmitVoteDialogVoteParams {
     /**
      * Proposal to submit the vote for.
      */
@@ -46,7 +47,7 @@ export interface ICrispSubmitVoteDialogVoteParams {
     maskTarget?: undefined;
 }
 
-export interface ICrispSubmitVoteDialogMaskParams {
+interface ICrispSubmitVoteDialogMaskParams {
     /**
      * Proposal to submit the mask for.
      */
@@ -117,24 +118,26 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
         isWalletSubmission,
         countedShare,
         isLoading,
-    } = useCrispSubmitVote(
-        location.params.maskTarget != null
-            ? {
-                  proposal,
-                  maskTarget: location.params.maskTarget,
-                  daoId: location.params.daoId,
-                  method,
-              }
-            : {
-                  proposal,
-                  voteOption: location.params.voteOption,
-                  method,
-                  randomizeWeight,
-              },
-    );
+    } = useCrispSubmitVote({
+        ...location.params,
+        proposal,
+        method,
+        randomizeWeight,
+    });
 
     const isPending = state === 'pending';
+
+    // Wallet and chain failures keep the message they come with, only CRISP errors are translated
+    const describeError = (cause: Error) =>
+        cause instanceof CrispError
+            ? t(cause.errorKey, cause.params)
+            : cause.message;
+
     const isDirect = method === CrispSubmitVoteMethod.DIRECT;
+
+    // The sender of a mask for a random member would not be its slot, which tells it from a vote,
+    // so it is only ever relayed and the voter has no choice to make.
+    const canChooseMethod = maskTarget !== CrispMaskTarget.RANDOM;
 
     let randomizeHelpText = t(
         'app.plugins.crisp.crispSubmitVoteDialog.randomize.helpTextOff',
@@ -271,42 +274,45 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
                             : 'app.plugins.crisp.crispSubmitVoteDialog.description',
                     )}
                 </p>
-                <InputContainer
-                    helpText={t(
-                        `app.plugins.crisp.crispSubmitVoteDialog.method.${isDirect ? 'directHelpText' : 'relayHelpText'}`,
-                    )}
-                    id="crispSubmitVoteMethod"
-                    label={t(
-                        'app.plugins.crisp.crispSubmitVoteDialog.method.label',
-                    )}
-                    useCustomWrapper={true}
-                >
-                    <ToggleGroup
-                        isMultiSelect={false}
-                        onChange={(value) =>
-                            setMethod(
-                                (value as CrispSubmitVoteMethod | undefined) ??
-                                    method,
-                            )
-                        }
-                        value={method}
+                {canChooseMethod && (
+                    <InputContainer
+                        helpText={t(
+                            `app.plugins.crisp.crispSubmitVoteDialog.method.${isDirect ? 'directHelpText' : 'relayHelpText'}`,
+                        )}
+                        id="crispSubmitVoteMethod"
+                        label={t(
+                            'app.plugins.crisp.crispSubmitVoteDialog.method.label',
+                        )}
+                        useCustomWrapper={true}
                     >
-                        <Toggle
-                            disabled={isPending}
-                            label={t(
-                                'app.plugins.crisp.crispSubmitVoteDialog.method.relay',
-                            )}
-                            value={CrispSubmitVoteMethod.RELAY}
-                        />
-                        <Toggle
-                            disabled={isPending}
-                            label={t(
-                                'app.plugins.crisp.crispSubmitVoteDialog.method.direct',
-                            )}
-                            value={CrispSubmitVoteMethod.DIRECT}
-                        />
-                    </ToggleGroup>
-                </InputContainer>
+                        <ToggleGroup
+                            isMultiSelect={false}
+                            onChange={(value) =>
+                                setMethod(
+                                    (value as
+                                        | CrispSubmitVoteMethod
+                                        | undefined) ?? method,
+                                )
+                            }
+                            value={method}
+                        >
+                            <Toggle
+                                disabled={isPending}
+                                label={t(
+                                    'app.plugins.crisp.crispSubmitVoteDialog.method.relay',
+                                )}
+                                value={CrispSubmitVoteMethod.RELAY}
+                            />
+                            <Toggle
+                                disabled={isPending}
+                                label={t(
+                                    'app.plugins.crisp.crispSubmitVoteDialog.method.direct',
+                                )}
+                                value={CrispSubmitVoteMethod.DIRECT}
+                            />
+                        </ToggleGroup>
+                    </InputContainer>
+                )}
                 {!isMask && (
                     <Switch
                         checked={randomizeWeight}
@@ -330,7 +336,7 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
                     <AlertInline
                         message={
                             roundError != null
-                                ? `${t('app.plugins.crisp.crispSubmitVoteDialog.alert.roundNotReady')} (${roundError.message})`
+                                ? `${t('app.plugins.crisp.crispSubmitVoteDialog.alert.roundNotReady')} (${describeError(roundError)})`
                                 : t(
                                       'app.plugins.crisp.crispSubmitVoteDialog.alert.roundNotReady',
                                   )
@@ -360,10 +366,11 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
                 {state === 'error' && (
                     <AlertInline
                         message={
-                            error?.message ??
-                            t(
-                                'app.plugins.crisp.crispSubmitVoteDialog.alert.error',
-                            )
+                            error != null
+                                ? describeError(error)
+                                : t(
+                                      'app.plugins.crisp.crispSubmitVoteDialog.alert.error',
+                                  )
                         }
                         variant="critical"
                     />

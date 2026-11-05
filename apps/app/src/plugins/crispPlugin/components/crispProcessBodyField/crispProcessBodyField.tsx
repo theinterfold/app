@@ -23,7 +23,7 @@ import { useDao } from '@/shared/api/daoService';
 import { useTranslations } from '@/shared/components/translationsProvider';
 import { useDaoChain } from '@/shared/hooks/useDaoChain';
 import { useDaoPluginInfo } from '@/shared/hooks/useDaoPluginInfo';
-import { useTokenTotalSupply } from '@/shared/hooks/useTokenTotalSupply';
+import { bigIntUtils } from '@/shared/utils/bigIntUtils';
 import { daoUtils } from '@/shared/utils/daoUtils';
 import { dateUtils } from '@/shared/utils/dateUtils';
 import type { ICrispSetupGovernanceForm } from '../crispSetupGovernance';
@@ -60,7 +60,7 @@ export const CrispProcessBodyField = (props: ICrispProcessBodyFieldProps) => {
     const { data: dao } = useDao({ urlParams: daoUrlParams });
 
     const { t } = useTranslations();
-    const { buildEntityUrl, chainId } = useDaoChain({ network: dao?.network });
+    const { buildEntityUrl } = useDaoChain({ network: dao?.network });
 
     const isExisting = body.type === BodyType.EXISTING;
     const { membership, governance } = body;
@@ -81,19 +81,16 @@ export const CrispProcessBodyField = (props: ICrispProcessBodyFieldProps) => {
         name: tokenName,
         symbol: tokenSymbol,
         decimals: tokenDecimals,
+        totalSupply,
     } = membership.token;
-
-    const { data: totalSupply } = useTokenTotalSupply({
-        chainId,
-        address: tokenAddress,
-    });
 
     const { minParticipation, minDuration } = governance;
 
+    const parsedTotalSupply = bigIntUtils.safeParse(totalSupply);
     const formattedSupply =
-        totalSupply != null && totalSupply > BigInt(0)
+        parsedTotalSupply > BigInt(0)
             ? `${formatterUtils.formatNumber(
-                  formatUnits(totalSupply, tokenDecimals),
+                  formatUnits(parsedTotalSupply, tokenDecimals),
                   { format: NumberFormat.TOKEN_AMOUNT_LONG },
               )} ($${tokenSymbol})`
             : '-';

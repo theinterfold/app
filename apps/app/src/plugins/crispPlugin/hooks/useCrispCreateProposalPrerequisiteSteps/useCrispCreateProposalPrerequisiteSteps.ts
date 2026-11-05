@@ -1,5 +1,6 @@
 'use client';
 
+import { addressUtils } from '@aragon/gov-ui-kit';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
     ICreateProposalPrerequisiteStepsParams,
@@ -60,10 +61,11 @@ export const useCrispCreateProposalPrerequisiteSteps = (
         () =>
             (parentStages ?? [])
                 .filter((stage) =>
-                    stage.plugins.some(
-                        (body) =>
-                            body.address.toLowerCase() ===
-                            crispPlugin.address.toLowerCase(),
+                    stage.plugins.some((body) =>
+                        addressUtils.isAddressEqual(
+                            body.address,
+                            crispPlugin.address,
+                        ),
                     ),
                 )
                 .map((stage) => stage.voteDuration),
