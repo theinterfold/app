@@ -164,8 +164,9 @@ export interface IUseCrispSubmitVoteResult {
  *
  * The attested payload, not the proof of the SDK, is what reaches the contract on either path.
  * The wallet only sends it once it names the ballot built here, and a ballot is only reported as
- * submitted once the receipt of its transaction shows the `InputCommitted` event for it. A mask
- * for a random member is never sent from the wallet, as the sender would reveal it is a mask.
+ * submitted once the receipt of its transaction shows the `InputCommitted` or `InputPublished`
+ * event for it. A mask for a random member is never sent from the wallet, as the sender would
+ * reveal it is a mask.
  */
 export const useCrispSubmitVote = (
     params: IUseCrispSubmitVoteParams,

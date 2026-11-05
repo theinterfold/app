@@ -136,10 +136,13 @@ that already reports a transaction hash is never sent again.
 
 A ballot is reported as submitted only once the chain shows it: the receipt of the wallet
 transaction, or of the `tx_hash` the server reports on the relay path (`confirmRelayedCommitment`),
-must be a success that holds `CRISPProgram.InputCommitted` for this round, the slot and the
-ciphertext commitment of the voter's own proof. A relayed job without a transaction hash cannot be
-confirmed and fails. The hash is validated before it is read or linked to. The round must be `Active` with the committee key
-published and the on-chain input window open, which is checked before the slow proving starts.
+must be a success that holds an event of `CRISPProgram` for this round, the slot and the ciphertext
+commitment of the voter's own proof: `InputCommitted`, or `InputPublished`, which `finalizeInput`
+only emits for an input committed with the same identity. The server reports the publication
+transaction once it sends it, so a relayed ballot can be confirmed by either. A relayed job
+without a transaction hash cannot be confirmed and fails. The hash is validated before it is read
+or linked to. The round must be `Active` with the committee key published and the on-chain input
+window open, which is checked before the slow proving starts.
 
 The round id is a decimal string end to end (ids are around 1e76) and only becomes a `bigint` for
 contract and SDK calls. The CRISP program is resolved from the chain: `plugin.interfold()` then
@@ -203,7 +206,8 @@ What the app verifies, and what it takes from the CRISP server or the governance
 - **Verified on-chain or locally:** the committee key against its on-chain commitment, the
   coordinator of the plugin against `crispE3Config`, the circuit preset against the network, the
   slot head the ballot extends, the identity of the attested payload against the ballot the wallet
-  built, and the `InputCommitted` event against the same identity before success is reported.
+  built, and the `InputCommitted` or `InputPublished` event against the same identity before
+  success is reported.
 - **Slot head.** The previous ciphertext a ballot is added to (its `parentIndexPlusOne`) is
   resolved by the SDK `getSlotHead` from the `InputCommitted` and `InputPublished` events of the
   program, read through the RPC proxy, rather than from the server's `previous-ciphertext`. A ballot
