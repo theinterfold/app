@@ -69,8 +69,11 @@ the withdrawal of the fee credit, which the fee card of the creation wizard offe
 
 - Install data is `[pluginInitParams, token, grantExecuteOnDao]`. The token must be an existing
   IVotes token (it is not created, minted nor wrapped) and `grantExecuteOnDao` is `false` for a body
-  of a staged process. The setup installs no condition, so a body cannot restrict proposal creation
-  in a staged process.
+  of a staged process. From build 2 the setup returns a proposal-creation condition at
+  `helpers[0]`, which grants by the plugin's own proposer rule (`isProposerEligible`). The process
+  wizard adds it to the creation rules of a new staged process, like the `VotingPowerCondition` of
+  token voting. Build 1 returns no helper, so a body installed from it cannot restrict proposal
+  creation in a staged process.
 - The creator pays the E3 fee from a credit held on the plugin. The publish dialog adds a top-up
   step when the credit does not cover the quote (`useCrispCreateProposalPrerequisiteSteps`), for a
   proposal created directly and through a staged process alike. The step names the amount it
