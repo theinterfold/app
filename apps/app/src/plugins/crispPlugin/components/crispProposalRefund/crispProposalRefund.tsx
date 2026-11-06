@@ -43,14 +43,12 @@ export const CrispProposalRefund: React.FC<ICrispProposalRefundProps> = (
         proposal.failureReason ?? CrispE3FailureReason.NONE,
     );
 
-    // A round that missed its deadline is not marked failed by anyone else until the grace period ends
-    const markFailedStart =
-        step === 'markFailed' && state != null
-            ? crispRefundUtils.getMarkFailedStart(proposal, state)
+    // The coordinator reverts the next step until its window ends, the payer is told when instead
+    const wait =
+        state != null
+            ? crispRefundUtils.getRefundWait(proposal, state, step)
             : undefined;
-    const isAwaitingGrace =
-        markFailedStart != null && markFailedStart > Date.now();
-    const canRefund = isPayer && step != null && !isAwaitingGrace;
+    const canRefund = isPayer && step != null && wait == null;
 
     const refresh = () => {
         void refetch();
@@ -95,8 +93,8 @@ export const CrispProposalRefund: React.FC<ICrispProposalRefundProps> = (
             return 'payer';
         }
 
-        if (isAwaitingGrace) {
-            return 'graceRunning';
+        if (wait != null) {
+            return wait.reason;
         }
 
         if (step != null) {
@@ -108,9 +106,9 @@ export const CrispProposalRefund: React.FC<ICrispProposalRefundProps> = (
 
     const refundText = t(
         `app.plugins.crisp.crispProposalRefund.refund.${getRefundKey()}`,
-        isAwaitingGrace
+        wait?.until != null
             ? {
-                  date: formatterUtils.formatDate(markFailedStart, {
+                  date: formatterUtils.formatDate(wait.until, {
                       format: DateFormat.YEAR_MONTH_DAY_TIME,
                   }),
               }
