@@ -87,7 +87,7 @@ class SppProposalUtils {
         const paramsMet = this.areAllStagesAccepted(proposal);
         const canExecuteEarly = lastStage?.minAdvance === 0;
 
-        return proposalStatusUtils.getProposalStatus({
+        const status = proposalStatusUtils.getProposalStatus({
             isExecuted,
             isVetoed,
             startDate,
@@ -99,6 +99,17 @@ class SppProposalUtils {
             hasActions,
             canExecuteEarly,
         });
+
+        // Like the stage header: a live stage that only waits for a body reporting its result after
+        // voting takes no more votes, so the proposal is pending that result, not active.
+        const currentStage = this.getCurrentStage(proposal);
+        const isAwaitingLateResult =
+            currentStage != null &&
+            sppStageUtils.isAwaitingLateResult(proposal, currentStage);
+
+        return status === ProposalStatus.ACTIVE && isAwaitingLateResult
+            ? ProposalStatus.PENDING
+            : status;
     };
 
     hasAnyStageStatus = (
