@@ -97,7 +97,6 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
 
     const [randomizeWeight, setRandomizeWeight] = useState(true);
 
-    // The e3 round of the proposal only exists on-chain.
     const { proposal, isLoading: isProposalLoading } = useCrispProposal({
         proposal: proposalParam,
     });

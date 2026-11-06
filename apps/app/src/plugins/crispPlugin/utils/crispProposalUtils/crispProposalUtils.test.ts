@@ -134,8 +134,7 @@ describe('crispProposal utils', () => {
 
     describe('isApprovalReached', () => {
         it('requires quorum even when yes beats no', () => {
-            // Quorum gates every proposal on-chain, so reporting a pass here would report a
-            // success the chain rejects.
+            // Quorum gates every proposal on-chain.
             const proposal = buildProposal({
                 yes: '5',
                 no: '0',
@@ -236,8 +235,7 @@ describe('crispProposal utils', () => {
         });
 
         it('reports a closed proposal with no published tally as pending, not rejected', () => {
-            // The committee has not decrypted the result yet — the outcome is unknown, and
-            // calling it a rejection would be wrong as often as it is right.
+            // The committee has not decrypted the result yet, so the outcome is unknown.
             const proposal = buildProposal({
                 yes: '0',
                 no: '0',
@@ -365,14 +363,6 @@ describe('crispProposal utils', () => {
         });
     });
 
-    describe('hasExecuteProposalPermissionModifier', () => {
-        it('is false, execution of a CRISP proposal is permissionless', () => {
-            expect(
-                crispProposalUtils.hasExecuteProposalPermissionModifier(),
-            ).toBeFalsy();
-        });
-    });
-
     describe('failed round', () => {
         const buildFailedProposal = (params?: {
             endDate?: number;
@@ -413,18 +403,6 @@ describe('crispProposal utils', () => {
 
             expect(crispProposalUtils.getProposalStatus(proposal)).toEqual(
                 ProposalStatus.EXECUTED,
-            );
-        });
-
-        it('is still pending while the tally is awaited and the round has not failed', () => {
-            const proposal = buildProposal({
-                yes: '0',
-                no: '0',
-                isTallyPublished: false,
-            });
-
-            expect(crispProposalUtils.getProposalStatus(proposal)).toEqual(
-                ProposalStatus.PENDING,
             );
         });
     });

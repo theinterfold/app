@@ -73,7 +73,7 @@ class CrispFeeUtils {
     hasSufficientCredit = (quote?: bigint, credit?: bigint): boolean =>
         quote != null && credit != null && credit >= quote;
 
-    // Fee-token amount for display, e.g. `12.5 FOLD`, or `-` while the amount or the token is unknown
+    // Fee-token amount for display, e.g. `12.5 USDC`, or `-` while the amount is unknown
     formatAmount = (
         amount?: bigint,
         decimals?: number,
@@ -91,7 +91,7 @@ class CrispFeeUtils {
         return `${value} ${symbol ?? ''}`.trim();
     };
 
-    // Whether creating a proposal reverted because the creator lacks fee credit, which the prerequisite steps top up
+    // Whether creating a proposal reverted for lack of fee credit, which a deposit resolves
     isInsufficientCreditRevert = (revertData: Hex): boolean => {
         try {
             const { errorName, args } = decodeErrorResult({
@@ -113,7 +113,7 @@ class CrispFeeUtils {
      * Dates a direct proposal is created with. The quote and the transaction must use the same
      * ones because the fee depends on the resulting window.
      * - Without end date the end is left to the contract (`0`), instead of defaulting to the
-     * seven days of the other plugins which would make the fee roughly eight times the minimum.
+     * seven days of the other plugins, which would inflate the fee.
      * - An explicit end with "start now" sends `now` as start, because with a start of `0` the
      * contract reads the end as a duration.
      */
