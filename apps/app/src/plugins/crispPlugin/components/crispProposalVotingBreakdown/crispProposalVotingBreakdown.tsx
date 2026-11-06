@@ -48,10 +48,9 @@ export const CrispProposalVotingBreakdown: React.FC<
         return <CrispProposalRefund proposal={proposal} />;
     }
 
-    // Encrypted until the committee publishes the tally, and until the divisor that turns its
-    // counts into token units is known. The state tells which step of the round it waits on, and
-    // until when that step may run before the round fails. The children hold the vote
-    // submission, which is open exactly while the tally is encrypted.
+    // Encrypted until the committee publishes the tally and the divisor that turns its counts
+    // into token units is known. The children hold the vote submission, which is open exactly
+    // while the tally is encrypted.
     if (!crispProposalUtils.isTallyResolved(proposal)) {
         return (
             <Tabs.Content

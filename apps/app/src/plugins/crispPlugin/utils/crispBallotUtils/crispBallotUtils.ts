@@ -22,7 +22,7 @@ import {
 import { crispProgramAbi } from '../../constants/crispProgramAbi';
 import { CrispError } from '../../types';
 
-export type CrispCommitmentStep =
+type CrispCommitmentStep =
     /**
      * The server reports the commitment on-chain. The hash is null when the server did not send it.
      */

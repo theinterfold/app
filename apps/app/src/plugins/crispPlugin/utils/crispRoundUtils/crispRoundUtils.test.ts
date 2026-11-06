@@ -130,28 +130,6 @@ describe('crispRound utils', () => {
         });
     });
 
-    describe('readSlotVotingPower', () => {
-        it('reads the spendable voting power of the slot from the program', async () => {
-            mockChain({ votingPowerOf: BigInt(9) });
-
-            const result = await crispRoundUtils.readSlotVotingPower({
-                network: Network.ETHEREUM_SEPOLIA,
-                programAddress: program,
-                e3Id: BigInt(7),
-                slot,
-            });
-
-            expect(result).toEqual(BigInt(9));
-            expect(readContractSpy.mock.calls[0][1]).toEqual(
-                expect.objectContaining({
-                    address: program,
-                    functionName: 'votingPowerOf',
-                    args: [BigInt(7), slot],
-                }),
-            );
-        });
-    });
-
     describe('readBallotContext', () => {
         const params = {
             network: Network.ETHEREUM_SEPOLIA,

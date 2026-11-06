@@ -270,7 +270,7 @@ class SppStageUtils {
 
     /**
      * The date an active stage counts down to: the end of its voting window or, when later, the end
-     * of the latest body vote, such as one that opens later than the stage.
+     * of the latest body vote, which can outlast the window.
      */
     getStageCountdownEnd = (
         proposal: ISppProposal,
@@ -291,10 +291,12 @@ class SppStageUtils {
         return DateTime.max(endDate, ...bodyEnds);
     };
 
-    // Whether an active stage only waits for a body that reports its result after voting, such as
-    // one whose tally is decrypted once the vote closed: its window and every body vote are over,
-    // so nobody can vote in it any more. A body without a sub-proposal (Safe, external address)
-    // that has not reported can still act past the window, so its stage is not waiting.
+    /**
+     * Whether an active stage only waits for a body that reports its result after voting (e.g. once
+     * its tally is decrypted): the window and every body vote are over, so nobody can vote any more.
+     * A body without a sub-proposal (Safe, external address) that has not reported can still act
+     * past the window, so its stage is not waiting.
+     */
     isAwaitingLateResult = (
         proposal: ISppProposal,
         stage: ISppStage,

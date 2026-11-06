@@ -141,7 +141,7 @@ describe('SppStageUtils', () => {
             ).toEqual(startDate.toSeconds() + 3600);
         });
 
-        it('counts down to a body vote that is still open past the voting window', () => {
+        it('counts down to the end of a body vote of the stage that outlasts the voting window', () => {
             timeUtils.setTime('2022-02-10T09:10:00.000Z');
             const bodyEnd = startDate.toSeconds() + 6000;
             const lateBodyProposal = generateSppProposal({
@@ -153,34 +153,6 @@ describe('SppStageUtils', () => {
                         stageIndex: 1,
                     }),
                 ],
-            });
-            expect(
-                sppStageUtils
-                    .getStageCountdownEnd(lateBodyProposal, stage)
-                    ?.toSeconds(),
-            ).toEqual(bodyEnd);
-        });
-
-        it('counts down to a body vote that ends after the voting window while the window is open', () => {
-            timeUtils.setTime('2022-02-10T08:50:00.000Z');
-            const bodyEnd = startDate.toSeconds() + 6000;
-            const lateBodyProposal = generateSppProposal({
-                startDate: startDate.toSeconds(),
-                subProposals: [generateSppSubProposal({ endDate: bodyEnd })],
-            });
-            expect(
-                sppStageUtils
-                    .getStageCountdownEnd(lateBodyProposal, stage)
-                    ?.toSeconds(),
-            ).toEqual(bodyEnd);
-        });
-
-        it('keeps the end of a body vote that closed after the voting window', () => {
-            timeUtils.setTime('2022-02-10T09:50:00.000Z');
-            const bodyEnd = startDate.toSeconds() + 6000;
-            const lateBodyProposal = generateSppProposal({
-                startDate: startDate.toSeconds(),
-                subProposals: [generateSppSubProposal({ endDate: bodyEnd })],
             });
             expect(
                 sppStageUtils

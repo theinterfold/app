@@ -100,8 +100,8 @@ class SppProposalUtils {
             canExecuteEarly,
         });
 
-        // Like the stage header: a live stage that only waits for a body reporting its result after
-        // voting takes no more votes, so the proposal is pending that result, not active.
+        // A live stage that only waits for a body reporting its result after voting takes no more
+        // votes, so the proposal is pending that result, not active.
         const currentStage = this.getCurrentStage(proposal);
         const isAwaitingLateResult =
             currentStage != null &&

@@ -3,12 +3,12 @@ import { parseUnits } from 'viem';
 import type { IDaoPlugin } from '@/shared/api/daoService';
 import * as useDaoPluginsModule from '@/shared/hooks/useDaoPlugins';
 import { generateDaoPlugin } from '@/shared/testUtils';
-import * as useCrispFeeCreditsModule from '../../hooks/useCrispFeeCredits';
-import type { IUseCrispFeeCreditsResult } from '../../hooks/useCrispFeeCredits/useCrispFeeCredits.api';
 import { generateCrispPluginSettings } from '../../testUtils';
 import type { ICrispPluginSettings } from '../../types';
 import { crispFeeUtils } from '../../utils/crispFeeUtils';
 import type { ICreateCrispProposalFormData } from '../../utils/crispTransactionUtils';
+import * as useCrispFeeCreditsModule from '../useCrispFeeCredits';
+import type { IUseCrispFeeCreditsResult } from '../useCrispFeeCredits/useCrispFeeCredits.api';
 import { useCrispCreateProposalPrerequisiteSteps } from './useCrispCreateProposalPrerequisiteSteps';
 
 describe('useCrispCreateProposalPrerequisiteSteps hook', () => {

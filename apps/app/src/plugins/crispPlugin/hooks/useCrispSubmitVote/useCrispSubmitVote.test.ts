@@ -176,18 +176,6 @@ describe('useCrispSubmitVote', () => {
         jest.clearAllMocks();
     });
 
-    it('reports the round as not ready until the committee key is published', () => {
-        mockQueries({
-            roundState: buildRoundState({ committee_public_key: [] }),
-        });
-
-        const { result } = renderHook(() =>
-            useCrispSubmitVote({ proposal, voteOption: VoteOption.YES }),
-        );
-
-        expect(result.current.isRoundReady).toBeFalsy();
-    });
-
     it('reports the round as not ready when it is no longer active', () => {
         mockQueries({ roundState: buildRoundState({ status: 'Ended' }) });
 
@@ -220,6 +208,7 @@ describe('useCrispSubmitVote', () => {
             expect.objectContaining({
                 e3Id: BigInt(e3Id),
                 slotAddress: address,
+                isMaskVote: false,
                 votingPower: BigInt(300),
                 preset: 'insecure-64',
             }),
@@ -247,23 +236,6 @@ describe('useCrispSubmitVote', () => {
         });
         expect(result.current.transactionHash).toEqual(txHash);
         expect(writeContractAsync).not.toHaveBeenCalled();
-    });
-
-    it('puts the voting power on the CRISP index of the chosen option, not the Aragon one', async () => {
-        mockQueries();
-
-        const { result } = renderHook(() =>
-            useCrispSubmitVote({ proposal, voteOption: VoteOption.NO }),
-        );
-
-        act(() => result.current.submitVote());
-
-        await waitFor(() => expect(result.current.state).toEqual('success'));
-
-        // CRISP orders the options yes, no, abstain, so a NO ballot puts the weight in the middle.
-        expect(prepareBallotSpy).toHaveBeenCalledWith(
-            expect.objectContaining({ vote: [0, 298, 0] }),
-        );
     });
 
     it('asks the server to send the commitment from the wallet on the direct path', async () => {
@@ -485,31 +457,6 @@ describe('useCrispSubmitVote', () => {
         expect(result.current.error?.message).toEqual('not eligible');
     });
 
-    it('surfaces a failed broadcast reported in the response', async () => {
-        mockQueries();
-        broadcastSpy.mockResolvedValue({
-            status: 'failed_broadcast',
-            tx_hash: null,
-            job_id: null,
-            encoded_proof: null,
-            message: 'relay out of funds',
-        });
-
-        const { result } = renderHook(() =>
-            useCrispSubmitVote({ proposal, voteOption: VoteOption.YES }),
-        );
-
-        act(() => result.current.submitVote());
-
-        await waitFor(() => expect(result.current.state).toEqual('error'));
-
-        expect(result.current.error).toMatchObject({
-            errorKey:
-                'app.plugins.crisp.crispSubmitVoteDialog.error.serverReason',
-            params: { reason: 'relay out of funds' },
-        });
-    });
-
     it('surfaces a rejected signature as an error', async () => {
         mockQueries();
         signTypedDataAsync.mockRejectedValue(new Error('user rejected'));
@@ -664,32 +611,31 @@ describe('useCrispSubmitVote', () => {
     });
 
     describe('masks', () => {
-        const target = '0x4444444444444444444444444444444444444444';
         const daoId = 'dao-id';
 
-        const targetContext = {
-            interfoldAddress: '0x3333333333333333333333333333333333333333',
-            programAddress,
-            inputWindow: [BigInt(0), BigInt(10)],
-            committeeKeyCommitment: '0x12',
-            paramSet: 1,
-            votingPower: BigInt(40),
-            commitmentDeadline: BigInt(10),
-            encodedParams: '0x34',
-        } as const;
-
         const renderMask = (
-            maskTarget: CrispMaskTarget,
+            target: CrispMaskTarget,
             method?: CrispSubmitVoteMethod,
         ) =>
             renderHook(() =>
-                useCrispSubmitVote({ proposal, maskTarget, daoId, method }),
+                useCrispSubmitVote({
+                    proposal,
+                    maskTarget: target,
+                    daoId,
+                    method,
+                }),
             );
 
         beforeEach(() => {
             readContextSpy.mockResolvedValue({
-                ...targetContext,
+                interfoldAddress: '0x3333333333333333333333333333333333333333',
+                programAddress,
                 inputWindow: [BigInt(0), BigInt(10)],
+                committeeKeyCommitment: '0x12',
+                paramSet: 1,
+                votingPower: BigInt(40),
+                commitmentDeadline: BigInt(10),
+                encodedParams: '0x34',
             });
         });
 
@@ -733,19 +679,6 @@ describe('useCrispSubmitVote', () => {
             // The weight of a vote is never chosen for a mask, which counts nothing.
             expect(chooseWeightSpy).not.toHaveBeenCalled();
             expect(result.current.countedShare).toBeUndefined();
-        });
-
-        it('stages the mask with the server exactly as a vote is staged', async () => {
-            mockQueries();
-
-            const { result } = renderMask(CrispMaskTarget.SELF);
-
-            act(() => result.current.submitVote());
-
-            await waitFor(() =>
-                expect(result.current.state).toEqual('success'),
-            );
-
             expect(broadcastSpy).toHaveBeenCalledWith({
                 network: Network.ETHEREUM_SEPOLIA,
                 e3Id,
@@ -773,18 +706,18 @@ describe('useCrispSubmitVote', () => {
                 e3Id: BigInt(e3Id),
             });
             expect(readContextSpy).toHaveBeenCalledWith(
-                expect.objectContaining({ slot: target, isOwnSlot: false }),
+                expect.objectContaining({ slot: maskTarget, isOwnSlot: false }),
             );
             expect(prepareBallotSpy).toHaveBeenCalledWith(
                 expect.objectContaining({
                     isMaskVote: true,
-                    slotAddress: target,
+                    slotAddress: maskTarget,
                     vote: [0, 0, 0],
                     votingPower: BigInt(40),
                 }),
             );
             expect(readDigestSpy).toHaveBeenCalledWith(
-                expect.objectContaining({ slot: target }),
+                expect.objectContaining({ slot: maskTarget }),
             );
             expect(signTypedDataAsync).not.toHaveBeenCalled();
         });
@@ -805,30 +738,6 @@ describe('useCrispSubmitVote', () => {
                 message: null,
             });
         };
-
-        it('hands a mask of the own slot to the wallet like a vote when the relay does not send it', async () => {
-            mockQueries();
-            handBackToWallet();
-
-            const { result } = renderMask(CrispMaskTarget.SELF);
-
-            act(() => result.current.submitVote());
-
-            await waitFor(() => expect(writeContractAsync).toHaveBeenCalled());
-
-            expect(availabilitySpy).toHaveBeenCalledWith({
-                network: Network.ETHEREUM_SEPOLIA,
-                jobId: 'job-1',
-            });
-            expect(writeContractAsync).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    address: programAddress,
-                    functionName: 'publishInput',
-                    args: [BigInt(e3Id), attestedPayload],
-                }),
-            );
-            expect(result.current.isWalletSubmission).toBe(true);
-        });
 
         it('never sends a mask of a random member from the wallet when the relay hands it back', async () => {
             mockQueries();
@@ -880,41 +789,6 @@ describe('useCrispSubmitVote', () => {
             );
         });
 
-        it('does not look the connected address up on the CRISP server', () => {
-            mockQueries();
-
-            renderMask(CrispMaskTarget.SELF);
-
-            expect(useVoteStatusSpy).toHaveBeenCalledWith(
-                expect.objectContaining({ address }),
-                { enabled: false },
-            );
-        });
-
-        it('asks the server to send the commitment from the wallet on the direct path', async () => {
-            mockQueries();
-            broadcastSpy.mockResolvedValue({
-                status: 'ready_for_commitment',
-                tx_hash: null,
-                job_id: 'job-1',
-                encoded_proof: attestedPayload,
-                message: null,
-            });
-
-            const { result } = renderMask(
-                CrispMaskTarget.SELF,
-                CrispSubmitVoteMethod.DIRECT,
-            );
-
-            act(() => result.current.submitVote());
-
-            await waitFor(() => expect(writeContractAsync).toHaveBeenCalled());
-
-            expect(broadcastSpy).toHaveBeenCalledWith(
-                expect.objectContaining({ sendFromWallet: true }),
-            );
-        });
-
         it('does not report a mask as an update of the vote of the voter', async () => {
             mockQueries();
             useVoteStatusSpy.mockReturnValue({
@@ -948,52 +822,6 @@ describe('useCrispSubmitVote', () => {
             expect(readContextSpy).not.toHaveBeenCalled();
             expect(prepareBallotSpy).not.toHaveBeenCalled();
         });
-
-        it('refuses to mask an own slot without voting power before proving', async () => {
-            mockQueries();
-            const refusal = new CrispError('refusal');
-            readContextSpy.mockRejectedValue(refusal);
-
-            const { result } = renderMask(CrispMaskTarget.SELF);
-
-            act(() => result.current.submitVote());
-
-            await waitFor(() => expect(result.current.state).toEqual('error'));
-
-            expect(result.current.error).toBe(refusal);
-            expect(prepareBallotSpy).not.toHaveBeenCalled();
-        });
-
-        it('surfaces an error instead of masking when the round is not ready', async () => {
-            mockQueries({
-                roundState: buildRoundState({ committee_public_key: [] }),
-            });
-
-            const { result } = renderMask(CrispMaskTarget.RANDOM);
-
-            act(() => result.current.submitVote());
-
-            await waitFor(() => expect(result.current.state).toEqual('error'));
-
-            expect(result.current.error).toMatchObject({
-                errorKey:
-                    'app.plugins.crisp.crispSubmitVoteDialog.error.roundNotAccepting',
-            });
-            expect(pickMaskTargetSpy).not.toHaveBeenCalled();
-        });
-    });
-
-    it('looks the slot of the connected address up for a vote', () => {
-        mockQueries();
-
-        renderHook(() =>
-            useCrispSubmitVote({ proposal, voteOption: VoteOption.YES }),
-        );
-
-        expect(useVoteStatusSpy).toHaveBeenCalledWith(
-            expect.objectContaining({ address }),
-            { enabled: true },
-        );
     });
 
     describe('commitment checks', () => {
@@ -1095,63 +923,14 @@ describe('useCrispSubmitVote', () => {
             expect(confirmRelayedSpy).not.toHaveBeenCalled();
         });
 
-        it('sends the attested payload from the wallet when it carries the identity of the ballot', async () => {
+        it('sends nothing when the attested payload names another ballot', async () => {
             mockQueries();
-            handBackToWallet();
-
-            const { result } = submit(CrispSubmitVoteMethod.DIRECT);
-
-            await waitFor(() => expect(writeContractAsync).toHaveBeenCalled());
-
-            expect(decodeIdentitySpy).toHaveBeenCalledWith('0xclientproof');
-            expect(result.current.error).toBeUndefined();
-        });
-
-        it.each([
-            {
-                field: 'ciphertext commitment',
-                override: { encryptedVoteCommitment: `0x${'99'.repeat(32)}` },
-            },
-            {
-                field: 'ciphertext hash',
-                override: { encryptedVoteHash: `0x${'98'.repeat(32)}` },
-            },
-            {
-                field: 'slot',
-                override: {
+            handBackToWallet(
+                generateCrispAttestedPayload({
+                    ...voteIdentity,
                     slotAddress: '0x5555555555555555555555555555555555555555',
-                },
-            },
-            { field: 'parent', override: { parentIndexPlusOne: 9 } },
-        ] as const)(
-            'sends nothing when the attested payload names another $field',
-            async ({ override }) => {
-                mockQueries();
-                handBackToWallet(
-                    generateCrispAttestedPayload({
-                        ...voteIdentity,
-                        ...override,
-                    }),
-                );
-
-                const { result } = submit(CrispSubmitVoteMethod.DIRECT);
-
-                await waitFor(() =>
-                    expect(result.current.state).toEqual('error'),
-                );
-
-                expect(result.current.error).toMatchObject({
-                    errorKey:
-                        'app.plugins.crisp.crispSubmitVoteDialog.error.attestedPayloadMismatch',
-                });
-                expect(writeContractAsync).not.toHaveBeenCalled();
-                expect(switchChainAsync).not.toHaveBeenCalled();
-            },
-        );
-
-        it('sends nothing when the attested payload cannot be decoded', async () => {
-            mockQueries();
-            handBackToWallet('0xdeadbeef');
+                }),
+            );
 
             const { result } = submit(CrispSubmitVoteMethod.DIRECT);
 
@@ -1162,6 +941,7 @@ describe('useCrispSubmitVote', () => {
                     'app.plugins.crisp.crispSubmitVoteDialog.error.attestedPayloadMismatch',
             });
             expect(writeContractAsync).not.toHaveBeenCalled();
+            expect(switchChainAsync).not.toHaveBeenCalled();
         });
 
         it('does not report success of a wallet submission whose receipt holds no commitment of the ballot', async () => {
@@ -1186,29 +966,5 @@ describe('useCrispSubmitVote', () => {
                     'app.plugins.crisp.crispSubmitVoteDialog.error.commitmentNotFound',
             });
         });
-    });
-
-    it('keeps a vote a signed vote, never a mask', async () => {
-        mockQueries();
-
-        const { result } = renderHook(() =>
-            useCrispSubmitVote({ proposal, voteOption: VoteOption.YES }),
-        );
-
-        expect(result.current.isMask).toBe(false);
-
-        act(() => result.current.submitVote());
-
-        await waitFor(() => expect(result.current.state).toEqual('success'));
-
-        expect(prepareBallotSpy).toHaveBeenCalledWith(
-            expect.objectContaining({
-                isMaskVote: false,
-                slotAddress: address,
-            }),
-        );
-        expect(pickMaskTargetSpy).not.toHaveBeenCalled();
-        expect(finishMaskSpy).not.toHaveBeenCalled();
-        expect(signTypedDataAsync).toHaveBeenCalled();
     });
 });

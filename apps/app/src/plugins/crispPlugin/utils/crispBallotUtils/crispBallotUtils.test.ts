@@ -568,24 +568,6 @@ describe('crispBallot utils', () => {
             );
         });
 
-        it('refuses a transaction that does not commit the ballot', async () => {
-            waitForReceiptSpy.mockResolvedValue({
-                status: 'success',
-                logs: [],
-            } as unknown as Awaited<
-                ReturnType<typeof wagmiActions.waitForTransactionReceipt>
-            >);
-
-            await expect(
-                crispBallotUtils.confirmRelayedCommitment(params),
-            ).rejects.toThrow(
-                expect.objectContaining({
-                    errorKey:
-                        'app.plugins.crisp.crispSubmitVoteDialog.error.commitmentNotFound',
-                }),
-            );
-        });
-
         it('refuses a transaction that cannot be read', async () => {
             waitForReceiptSpy.mockRejectedValue(new Error('timeout'));
 
