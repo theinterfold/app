@@ -24,10 +24,6 @@ import {
 import { CrispMaskTarget } from '../../types';
 import { CrispSubmitVote, type ICrispSubmitVoteProps } from './crispSubmitVote';
 
-jest.mock('@/modules/governance/components/proposalExecutionStatus', () => ({
-    ProposalExecutionStatus: () => <p>proposalExecutionStatus</p>,
-}));
-
 describe('<CrispSubmitVote /> component', () => {
     const useDialogContextSpy = jest.spyOn(dialogProvider, 'useDialogContext');
     const useDaoPluginsSpy = jest.spyOn(useDaoPluginsHook, 'useDaoPlugins');
@@ -182,7 +178,7 @@ describe('<CrispSubmitVote /> component', () => {
         },
     );
 
-    it('offers the execution once the closed round passed, which reports the result to an SPP stage', () => {
+    it('offers no action once the closed round passed, as an SPP stage reads the result from the body itself', () => {
         const proposal = generateCrispProposal({
             startDate: at(-3600),
             endDate: at(-60),
@@ -198,13 +194,8 @@ describe('<CrispSubmitVote /> component', () => {
                 ],
             },
         });
-        render(createTestComponent({ proposal }));
-        expect(screen.getByText('proposalExecutionStatus')).toBeInTheDocument();
-        expect(
-            screen.queryByRole('button', {
-                name: /crispSubmitVote.buttons.vote/,
-            }),
-        ).not.toBeInTheDocument();
+        const { container } = render(createTestComponent({ proposal }));
+        expect(container).toBeEmptyDOMElement();
     });
 
     describe('mask actions', () => {
