@@ -121,4 +121,54 @@ export const crispRefundManagerAbi = [
         outputs: [{ name: '', type: 'bool' }],
         stateMutability: 'view',
     },
+    {
+        type: 'function',
+        inputs: [{ name: 'e3Id', type: 'uint256' }],
+        name: 'getE3PolicySnapshot',
+        outputs: [
+            {
+                name: 'snapshot',
+                type: 'tuple',
+                components: [
+                    {
+                        name: 'allocation',
+                        type: 'tuple',
+                        components: [
+                            { name: 'committeeFormationBps', type: 'uint16' },
+                            { name: 'dkgBps', type: 'uint16' },
+                            { name: 'decryptionBps', type: 'uint16' },
+                            { name: 'protocolBps', type: 'uint16' },
+                            { name: 'successSlashedNodeBps', type: 'uint16' },
+                        ],
+                    },
+                    { name: 'treasury', type: 'address' },
+                    { name: 'interfold', type: 'address' },
+                    { name: 'registry', type: 'address' },
+                    { name: 'version', type: 'uint64' },
+                    { name: 'initialized', type: 'bool' },
+                    { name: 'bondingRegistry', type: 'address' },
+                    { name: 'slashingManager', type: 'address' },
+                ],
+            },
+        ],
+        stateMutability: 'view',
+    },
+] as const;
+
+// Settlement gate of a failed round on the slashing manager the round was requested under.
+export const crispSlashingManagerAbi = [
+    {
+        type: 'function',
+        inputs: [{ name: 'e3Id', type: 'uint256' }],
+        name: 'settlementOpen',
+        outputs: [{ name: '', type: 'bool' }],
+        stateMutability: 'view',
+    },
+    {
+        type: 'function',
+        inputs: [{ name: 'e3Id', type: 'uint256' }],
+        name: 'accusationSubmissionDeadline',
+        outputs: [{ name: 'submissionDeadline', type: 'uint64' }],
+        stateMutability: 'view',
+    },
 ] as const;

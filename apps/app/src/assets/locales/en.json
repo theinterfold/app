@@ -2749,9 +2749,11 @@
             "claimed": "The fee was refunded to your fee credit.",
             "graceRunning": "The fee can be reclaimed from {{date}}, once the committee's grace period to report the failure has ended.",
             "none": "No refund is available for this round.",
-            "payer": "The fee is refunded to the fee credit of the account that paid for it."
+            "payer": "The fee is refunded to the fee credit of the account that paid for it.",
+            "reportingRunning": "The fee can be reclaimed from {{date}}, once the period to report a misbehaving member of the committee has ended.",
+            "reportsOpen": "The fee can be reclaimed once the open reports against members of the committee are resolved."
           },
-          "withdraw": "Withdraw {{amount}} {{symbol}}"
+          "withdraw": "Withdraw {{amount}} {{symbol}} of fee credit"
         },
         "crispProposalVotingSummary": {
           "approved": "approved",

@@ -14,6 +14,7 @@ describe('crispRefund utils', () => {
         isCalculated: true,
         amount: BigInt(100),
         isClaimed: false,
+        isSettlementOpen: true,
         ...overrides,
     });
 
@@ -60,6 +61,75 @@ describe('crispRefund utils', () => {
             expect(
                 await crispRefundUtils.fetchFailureCondition(params),
             ).toBeNull();
+        });
+    });
+
+    describe('fetchRefundState', () => {
+        const readContractSpy = jest.spyOn(wagmiActions, 'readContract');
+        const slashingManager = '0x0000000000000000000000000000000000000005';
+        const params = {
+            chainId: 1,
+            pluginAddress:
+                '0x0000000000000000000000000000000000000003' as const,
+            proposalId: BigInt(3),
+            e3Id: BigInt(19),
+        };
+
+        const mockChain = (isCalculated: boolean) => {
+            const results: Record<string, unknown> = {
+                proposalPayer: '0x0000000000000000000000000000000000000001',
+                interfold: '0x0000000000000000000000000000000000000002',
+                getE3Stage: CrispE3Stage.FAILED,
+                e3RefundManager: '0x0000000000000000000000000000000000000004',
+                markFailedGracePeriod: BigInt(3600),
+                getRefundDistribution: {
+                    calculated: isCalculated,
+                    requesterAmount: BigInt(isCalculated ? 100 : 0),
+                },
+                hasRequesterClaimed: false,
+                getE3PolicySnapshot: { slashingManager },
+                settlementOpen: false,
+                accusationSubmissionDeadline: BigInt(1_794_000_000),
+            };
+            readContractSpy.mockImplementation(
+                (_config, parameters) =>
+                    Promise.resolve(results[parameters.functionName]) as never,
+            );
+        };
+
+        afterEach(() => {
+            readContractSpy.mockReset();
+        });
+
+        it('reads whether the failure can be processed from the slashing manager the round was requested under', async () => {
+            mockChain(false);
+
+            const state = await crispRefundUtils.fetchRefundState(params);
+
+            expect(state.isSettlementOpen).toBe(false);
+            expect(state.reportingDeadline).toEqual(1_794_000_000);
+            const settlementCall = readContractSpy.mock.calls.find(
+                ([, parameters]) =>
+                    parameters.functionName === 'settlementOpen',
+            );
+            expect(settlementCall?.[1]).toMatchObject({
+                address: slashingManager,
+                args: [BigInt(19)],
+            });
+        });
+
+        it('does not read the settlement once the refund is calculated', async () => {
+            mockChain(true);
+
+            const state = await crispRefundUtils.fetchRefundState(params);
+
+            expect(state.isSettlementOpen).toBe(true);
+            expect(
+                readContractSpy.mock.calls.some(
+                    ([, parameters]) =>
+                        parameters.functionName === 'getE3PolicySnapshot',
+                ),
+            ).toBe(false);
         });
     });
 
@@ -116,6 +186,89 @@ describe('crispRefund utils', () => {
                 crispRefundUtils.getMarkFailedStart(
                     generateCrispProposal(),
                     buildState(),
+                ),
+            ).toBeUndefined();
+        });
+    });
+
+    describe('getRefundWait', () => {
+        const deadline = 1_793_917_932;
+        const proposal = generateCrispProposal({ e3StageDeadline: deadline });
+
+        it('waits for the grace period before anyone may mark the round failed', () => {
+            const now = deadline * 1000;
+
+            expect(
+                crispRefundUtils.getRefundWait(
+                    proposal,
+                    buildState({ stage: CrispE3Stage.KEY_PUBLISHED }),
+                    'markFailed',
+                    now,
+                ),
+            ).toEqual({
+                reason: 'graceRunning',
+                until: (deadline + 3600) * 1000,
+            });
+        });
+
+        it('lets the round be marked failed once the grace period ended', () => {
+            const now = (deadline + 3601) * 1000;
+
+            expect(
+                crispRefundUtils.getRefundWait(
+                    proposal,
+                    buildState({ stage: CrispE3Stage.KEY_PUBLISHED }),
+                    'markFailed',
+                    now,
+                ),
+            ).toBeUndefined();
+        });
+
+        it('waits for the reporting window before the failure can be processed', () => {
+            const state = buildState({
+                isCalculated: false,
+                isSettlementOpen: false,
+                reportingDeadline: deadline + 604_800,
+            });
+
+            expect(
+                crispRefundUtils.getRefundWait(
+                    proposal,
+                    state,
+                    'processFailure',
+                    deadline * 1000,
+                ),
+            ).toEqual({
+                reason: 'reportingRunning',
+                until: (deadline + 604_800) * 1000,
+            });
+        });
+
+        it('waits without a date while reports stay open past the reporting window', () => {
+            const state = buildState({
+                isCalculated: false,
+                isSettlementOpen: false,
+                reportingDeadline: deadline,
+            });
+
+            expect(
+                crispRefundUtils.getRefundWait(
+                    proposal,
+                    state,
+                    'processFailure',
+                    (deadline + 1) * 1000,
+                ),
+            ).toEqual({ reason: 'reportsOpen' });
+        });
+
+        it('processes the failure once settlement is open', () => {
+            const state = buildState({ isCalculated: false });
+
+            expect(
+                crispRefundUtils.getRefundWait(
+                    proposal,
+                    state,
+                    'processFailure',
                 ),
             ).toBeUndefined();
         });

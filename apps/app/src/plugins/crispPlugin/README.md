@@ -76,10 +76,13 @@ deadline passed without being marked shows as failed too: the backend asks the c
 returned in up to three permissionless transactions: `markE3Failed`, `processE3Failure` (both on
 the coordinator) and `claimRefund(proposalId)` (plugin), which credits the payer recorded at
 creation. For `markFailedGracePeriod` seconds after the missed deadline, `markE3Failed` is reserved
-to the requester, the coordinator owner and the committee, so the payer is told when the refund can
-start instead of being offered a call that reverts. The proposal page offers the next step to the
-payer (`utils/crispRefundUtils`) and then the withdrawal of the fee credit, which the fee card of
-the creation wizard offers as well.
+to the requester, the coordinator owner and the committee. `processE3Failure` reverts
+`SettlementBlocked` until the slashing manager frozen in the round's policy snapshot reports
+`settlementOpen`: the window to report a member of the committee (`accusationSubmissionDeadline`)
+must have closed and no report may be open. Instead of offering a call that reverts, the proposal
+page tells the payer when the next step opens (`crispRefundUtils.getRefundWait`). Otherwise it
+offers the next step to the payer (`utils/crispRefundUtils`) and then the withdrawal of the fee
+credit, which the fee card of the creation wizard offers as well.
 
 ## Install, creation and staged processes
 
