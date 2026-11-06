@@ -105,6 +105,10 @@ credit, which the fee card of the creation wizard offers as well.
 - `createProposal` takes `abi.encode(uint256 allowFailureMap)` as data. A staged process builds it
   through the `GOVERNANCE_BUILD_CREATE_PROPOSAL_PARAMS` slot.
 - `execute` is permissionless, so `GOVERNANCE_EXECUTE_CHECK_VERSION_SUPPORTED` returns `false`.
+- A body of a staged process holds no `EXECUTE_PERMISSION` on the DAO, so executing its
+  sub-proposal reverts `Unauthorized`. The SPP reads a passed round through the body's
+  `hasSucceeded` without any report, so the body offers no execution and the stage advances (or the
+  process proposal executes) from the SPP.
 - The CRISP server URL is `NEXT_PUBLIC_CRISP_SERVER_URL`, see `crispE3Config`.
 
 ## Ballot submission

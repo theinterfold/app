@@ -11,7 +11,6 @@ import {
 import { useEffect, useState } from 'react';
 import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
 import { useWalletConnected } from '@/modules/application/hooks/useWalletConnected';
-import { ProposalExecutionStatus } from '@/modules/governance/components/proposalExecutionStatus';
 import { GovernanceSlotId } from '@/modules/governance/constants/moduleSlots';
 import { usePermissionCheckGuard } from '@/modules/governance/hooks/usePermissionCheckGuard';
 import type { ISubmitVoteProps } from '@/modules/governance/types';
@@ -123,18 +122,6 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
             setShowOptions(false);
         }
     }, [canSubmitVote, isUnavailable]);
-
-    // An SPP stage keeps this action mounted after its own window, as the CRISP result lands
-    // later. The stage only learns the result once the round's proposal is executed, and no vote
-    // can trigger that: the decrypted tally decides, so the execution is offered here.
-    if (status === ProposalStatus.EXECUTABLE) {
-        return (
-            <ProposalExecutionStatus
-                daoId={daoId}
-                proposal={resolvedProposal}
-            />
-        );
-    }
 
     // Ballots are only accepted within the round's window
     if (!(status === ProposalStatus.ACTIVE || isAwaitingStart)) {
