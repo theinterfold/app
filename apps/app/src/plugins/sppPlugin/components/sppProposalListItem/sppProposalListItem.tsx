@@ -26,7 +26,9 @@ export const SppProposalListItem: React.FC<ISppProposalListItemProps> = (
 
     const proposalDate = executed.blockTimestamp
         ? executed.blockTimestamp * 1000
-        : sppStageUtils.getStageEndDate(proposal, currentStage)?.toMillis();
+        : sppStageUtils
+              .getStageCountdownEnd(proposal, currentStage)
+              ?.toMillis();
 
     const proposalStatus = sppProposalUtils.getProposalStatus(proposal);
 

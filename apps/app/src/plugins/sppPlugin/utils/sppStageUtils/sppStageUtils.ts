@@ -269,20 +269,20 @@ class SppStageUtils {
     };
 
     /**
-     * The date an active stage counts down to: the end of its voting window, then the end of the
-     * latest body vote still open past the window, such as one that opens later than the stage.
+     * The date an active stage counts down to: the end of its voting window or, when later, the end
+     * of the latest body vote still open, such as one that opens later than the stage.
      */
     getStageCountdownEnd = (
         proposal: ISppProposal,
         stage: ISppStage,
     ): DateTime | undefined => {
         const endDate = this.getStageEndDate(proposal, stage);
-        const now = DateTime.now();
 
-        if (endDate == null || now < endDate) {
-            return endDate;
+        if (endDate == null) {
+            return undefined;
         }
 
+        const now = DateTime.now();
         const openBodyEnds = proposal.subProposals
             .filter(
                 (subProposal) => subProposal.stageIndex === stage.stageIndex,
@@ -290,9 +290,7 @@ class SppStageUtils {
             .map(({ endDate }) => DateTime.fromSeconds(endDate))
             .filter((bodyEnd) => now < bodyEnd);
 
-        return openBodyEnds.length > 0
-            ? DateTime.max(...openBodyEnds)
-            : endDate;
+        return DateTime.max(endDate, ...openBodyEnds);
     };
 
     // Whether an active stage only waits for a body that reports its result after voting, such as

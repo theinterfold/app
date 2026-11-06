@@ -159,6 +159,20 @@ describe('SppStageUtils', () => {
                     ?.toSeconds(),
             ).toEqual(bodyEnd);
         });
+
+        it('counts down to a body vote that ends after the voting window while the window is open', () => {
+            timeUtils.setTime('2022-02-10T08:50:00.000Z');
+            const bodyEnd = startDate.toSeconds() + 6000;
+            const lateBodyProposal = generateSppProposal({
+                startDate: startDate.toSeconds(),
+                subProposals: [generateSppSubProposal({ endDate: bodyEnd })],
+            });
+            expect(
+                sppStageUtils
+                    .getStageCountdownEnd(lateBodyProposal, stage)
+                    ?.toSeconds(),
+            ).toEqual(bodyEnd);
+        });
     });
 
     describe('isAwaitingLateResult', () => {
