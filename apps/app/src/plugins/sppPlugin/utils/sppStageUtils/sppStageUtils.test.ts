@@ -1,5 +1,6 @@
 import { ProposalStatus } from '@aragon/gov-ui-kit';
 import { DateTime } from 'luxon';
+import { GovernanceSlotId } from '@/modules/governance/constants/moduleSlots';
 import { externalPluginId } from '@/plugins/safeMultisigPlugin/constants';
 import { PluginInterfaceType } from '@/shared/api/daoService';
 import { pluginRegistryUtils } from '@/shared/utils/pluginRegistryUtils';
@@ -173,25 +174,53 @@ describe('SppStageUtils', () => {
                     ?.toSeconds(),
             ).toEqual(bodyEnd);
         });
+
+        it('keeps the end of a body vote that closed after the voting window', () => {
+            timeUtils.setTime('2022-02-10T09:50:00.000Z');
+            const bodyEnd = startDate.toSeconds() + 6000;
+            const lateBodyProposal = generateSppProposal({
+                startDate: startDate.toSeconds(),
+                subProposals: [generateSppSubProposal({ endDate: bodyEnd })],
+            });
+            expect(
+                sppStageUtils
+                    .getStageCountdownEnd(lateBodyProposal, stage)
+                    ?.toSeconds(),
+            ).toEqual(bodyEnd);
+        });
     });
 
     describe('isAwaitingLateResult', () => {
         const startDate = DateTime.fromISO('2022-02-10T08:00:00.000Z');
+        const bodyAddress = '0x0000000000000000000000000000000000000001';
         const stage = generateSppStage({
             voteDuration: 3600,
             maxAdvance: 86_400,
-            plugins: [generateSppStagePlugin()],
+            plugins: [generateSppStagePlugin({ address: bodyAddress })],
         });
         const buildProposal = (bodyEnd: number) =>
             generateSppProposal({
                 startDate: startDate.toSeconds(),
                 settings: generateSppPluginSettings({ stages: [stage] }),
-                subProposals: [generateSppSubProposal({ endDate: bodyEnd })],
+                subProposals: [
+                    generateSppSubProposal({
+                        pluginAddress: bodyAddress,
+                        endDate: bodyEnd,
+                    }),
+                ],
             });
+
+        // The body reports its result after the window and has not succeeded yet
+        const mockLateReportingBody = () =>
+            getSlotFunctionSpy.mockImplementation(({ slotId }) =>
+                slotId === GovernanceSlotId.GOVERNANCE_BODY_VOTES_AFTER_WINDOW
+                    ? () => true
+                    : () => false,
+            );
 
         it('is true once the window and body votes are over while a body reports its result late', () => {
             timeUtils.setTime('2022-02-10T09:50:00.000Z');
-            getSlotFunctionSpy.mockReturnValue(() => true);
+            mockLateReportingBody();
 
             expect(
                 sppStageUtils.isAwaitingLateResult(
@@ -203,7 +232,7 @@ describe('SppStageUtils', () => {
 
         it('is false while a body vote is still open past the window', () => {
             timeUtils.setTime('2022-02-10T09:10:00.000Z');
-            getSlotFunctionSpy.mockReturnValue(() => true);
+            mockLateReportingBody();
 
             expect(
                 sppStageUtils.isAwaitingLateResult(
@@ -221,6 +250,19 @@ describe('SppStageUtils', () => {
                     buildProposal(startDate.toSeconds() + 3600),
                     stage,
                 ),
+            ).toBe(false);
+        });
+
+        it('is false while a body without a sub-proposal can still report past the window', () => {
+            timeUtils.setTime('2022-02-10T09:50:00.000Z');
+            mockLateReportingBody();
+            const directBodyProposal = generateSppProposal({
+                startDate: startDate.toSeconds(),
+                settings: generateSppPluginSettings({ stages: [stage] }),
+            });
+
+            expect(
+                sppStageUtils.isAwaitingLateResult(directBodyProposal, stage),
             ).toBe(false);
         });
     });
