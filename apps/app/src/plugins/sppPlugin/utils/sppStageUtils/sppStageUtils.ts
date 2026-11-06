@@ -270,7 +270,7 @@ class SppStageUtils {
 
     /**
      * The date an active stage counts down to: the end of its voting window or, when later, the end
-     * of the latest body vote still open, such as one that opens later than the stage.
+     * of the latest body vote, such as one that opens later than the stage.
      */
     getStageCountdownEnd = (
         proposal: ISppProposal,
@@ -282,29 +282,36 @@ class SppStageUtils {
             return undefined;
         }
 
-        const now = DateTime.now();
-        const openBodyEnds = proposal.subProposals
+        const bodyEnds = proposal.subProposals
             .filter(
                 (subProposal) => subProposal.stageIndex === stage.stageIndex,
             )
-            .map(({ endDate }) => DateTime.fromSeconds(endDate))
-            .filter((bodyEnd) => now < bodyEnd);
+            .map(({ endDate }) => DateTime.fromSeconds(endDate));
 
-        return DateTime.max(endDate, ...openBodyEnds);
+        return DateTime.max(endDate, ...bodyEnds);
     };
 
     // Whether an active stage only waits for a body that reports its result after voting, such as
     // one whose tally is decrypted once the vote closed: its window and every body vote are over,
-    // so nobody can vote in it any more.
+    // so nobody can vote in it any more. A body without a sub-proposal (Safe, external address)
+    // that has not reported can still act past the window, so its stage is not waiting.
     isAwaitingLateResult = (
         proposal: ISppProposal,
         stage: ISppStage,
     ): boolean => {
         const countdownEnd = this.getStageCountdownEnd(proposal, stage);
+        const { stageIndex } = stage;
+        const hasDirectBodyToAct = stage.plugins.some(
+            ({ address }) =>
+                this.getBodySubProposal(proposal, address, stageIndex) ==
+                    null &&
+                this.getBodyResult(proposal, address, stageIndex) == null,
+        );
 
         return (
             countdownEnd != null &&
             DateTime.now() >= countdownEnd &&
+            !hasDirectBodyToAct &&
             this.getStageStatus(proposal, stage) === ProposalStatus.ACTIVE
         );
     };
