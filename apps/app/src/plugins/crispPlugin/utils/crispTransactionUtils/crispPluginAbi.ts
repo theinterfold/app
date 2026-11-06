@@ -78,72 +78,6 @@ export const crispPluginAbi = [
     },
     {
         type: 'function',
-        name: 'getProposal',
-        inputs: [{ name: '_proposalId', type: 'uint256' }],
-        outputs: [
-            {
-                name: 'proposal_',
-                type: 'tuple',
-                components: [
-                    { name: 'executed', type: 'bool' },
-                    {
-                        name: 'parameters',
-                        type: 'tuple',
-                        components: [
-                            { name: 'numOptions', type: 'uint256' },
-                            { name: 'startDate', type: 'uint64' },
-                            { name: 'endDate', type: 'uint64' },
-                            { name: 'snapshotBlock', type: 'uint256' },
-                            { name: 'minVotingPower', type: 'uint256' },
-                            { name: 'minParticipation', type: 'uint256' },
-                            { name: 'supportThreshold', type: 'uint256' },
-                            { name: 'creditMode', type: 'uint8' },
-                        ],
-                    },
-                    {
-                        name: 'tally',
-                        type: 'tuple',
-                        components: [{ name: 'counts', type: 'uint256[]' }],
-                    },
-                    {
-                        name: 'actions',
-                        type: 'tuple[]',
-                        components: [
-                            { name: 'to', type: 'address' },
-                            { name: 'value', type: 'uint256' },
-                            { name: 'data', type: 'bytes' },
-                        ],
-                    },
-                    { name: 'allowFailureMap', type: 'uint256' },
-                    {
-                        name: 'targetConfig',
-                        type: 'tuple',
-                        components: [
-                            { name: 'target', type: 'address' },
-                            { name: 'operation', type: 'uint8' },
-                        ],
-                    },
-                    { name: 'e3Id', type: 'uint256' },
-                ],
-            },
-        ],
-        stateMutability: 'view',
-    },
-    {
-        type: 'function',
-        name: 'getTally',
-        inputs: [{ name: '_proposalId', type: 'uint256' }],
-        outputs: [
-            {
-                name: '',
-                type: 'tuple',
-                components: [{ name: 'counts', type: 'uint256[]' }],
-            },
-        ],
-        stateMutability: 'view',
-    },
-    {
-        type: 'function',
         name: 'interfold',
         inputs: [],
         outputs: [{ name: '', type: 'address' }],
@@ -177,13 +111,6 @@ export const crispPluginAbi = [
         type: 'function',
         name: 'quoteProposalFeeForDuration',
         inputs: [{ name: '_votingDuration', type: 'uint64' }],
-        outputs: [{ name: '', type: 'uint256' }],
-        stateMutability: 'view',
-    },
-    {
-        type: 'function',
-        name: 'totalVotingPower',
-        inputs: [{ name: '_blockNumber', type: 'uint256' }],
         outputs: [{ name: '', type: 'uint256' }],
         stateMutability: 'view',
     },

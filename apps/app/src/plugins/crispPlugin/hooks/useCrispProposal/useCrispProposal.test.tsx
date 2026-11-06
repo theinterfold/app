@@ -214,7 +214,6 @@ describe('useCrispProposal', () => {
     describe('round that missed a deadline', () => {
         const unmarked = {
             ...proposal,
-            pluginAddress,
             e3Id: '7',
         };
 

@@ -9,7 +9,6 @@ const mockGetSlotHead = jest.fn();
 const mockCreateHttpDaReader = jest.fn();
 const mockFinishBallotProof = jest.fn();
 const mockFinishMaskProof = jest.fn();
-const mockDecodeInputIdentity = jest.fn();
 const mockGetBfvParams = jest.fn();
 const mockComputePkCommitment = jest.fn();
 
@@ -23,8 +22,6 @@ jest.mock('@crisp-e3/sdk', () => ({
     finishBallotProof: (...args: unknown[]) => mockFinishBallotProof(...args),
     finishMaskProof: (...args: unknown[]) => mockFinishMaskProof(...args),
     encodeSolidityProof: (proof: string) => `encoded:${proof}`,
-    decodeInputIdentity: (...args: unknown[]) =>
-        mockDecodeInputIdentity(...args),
 }));
 
 jest.mock('@interfold/wasm/init', () => ({
@@ -213,18 +210,6 @@ describe('crispSdk utils', () => {
                         'app.plugins.crisp.crispSubmitVoteDialog.error.presetNotAllowed',
                 }),
             );
-        });
-    });
-
-    describe('decodeInputIdentity', () => {
-        it('reads the identity of the envelope with the SDK', async () => {
-            const identity = { parentIndexPlusOne: 2 };
-            mockDecodeInputIdentity.mockReturnValue(identity);
-
-            await expect(
-                crispSdkUtils.decodeInputIdentity('0x12'),
-            ).resolves.toBe(identity);
-            expect(mockDecodeInputIdentity).toHaveBeenCalledWith('0x12');
         });
     });
 
