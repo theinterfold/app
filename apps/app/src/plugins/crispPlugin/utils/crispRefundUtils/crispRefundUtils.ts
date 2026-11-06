@@ -4,6 +4,7 @@ import { wagmiConfig } from '@/modules/application/constants/wagmi';
 import {
     crispInterfoldAbi,
     crispRefundManagerAbi,
+    crispSlashingManagerAbi,
 } from '../../constants/crispInterfoldAbi';
 import {
     type CrispE3FailureReason,
@@ -14,6 +15,24 @@ import { crispPluginAbi } from '../crispTransactionUtils/crispPluginAbi';
 
 // Transactions leading from a failed round to a refunded credit, in order
 export type CrispRefundStep = 'markFailed' | 'processFailure' | 'claim';
+
+// Why the next step would still revert
+export type CrispRefundWaitReason =
+    | 'graceRunning'
+    | 'reportingRunning'
+    | 'reportsOpen';
+
+export interface ICrispRefundWait {
+    /**
+     * Window that blocks the next step.
+     */
+    reason: CrispRefundWaitReason;
+    /**
+     * When the window ends, in milliseconds. Undefined when it ends once the open reports are
+     * resolved.
+     */
+    until?: number;
+}
 
 export interface ICrispRefundState {
     /**
@@ -45,6 +64,16 @@ export interface ICrispRefundState {
      * Whether the refund was already claimed.
      */
     isClaimed: boolean;
+    /**
+     * Whether the failure of the round can be processed. The coordinator blocks it while a member
+     * of the committee can still be reported or a report against one is open.
+     */
+    isSettlementOpen: boolean;
+    /**
+     * When the window to report a member of the committee closes, in seconds. Only read while the
+     * failure is not processed.
+     */
+    reportingDeadline?: number;
 }
 
 export interface IFetchCrispRefundStateParams {
@@ -147,6 +176,15 @@ class CrispRefundUtils {
             }),
         ]);
 
+        const settlement =
+            stage === CrispE3Stage.FAILED && !distribution.calculated
+                ? await this.fetchSettlement({
+                      chainId,
+                      refundManager,
+                      e3Id,
+                  })
+                : { isSettlementOpen: true };
+
         return {
             payer,
             interfold,
@@ -155,6 +193,7 @@ class CrispRefundUtils {
             isCalculated: distribution.calculated,
             amount: distribution.requesterAmount,
             isClaimed,
+            ...settlement,
         };
     };
 
@@ -187,6 +226,81 @@ class CrispRefundUtils {
         proposal.e3StageDeadline == null
             ? undefined
             : (proposal.e3StageDeadline + state.markFailedGracePeriod) * 1000;
+
+    // Undefined when the step can be sent now. The coordinator reverts the step during the window,
+    // so the payer is told when it ends instead of being offered the call.
+    getRefundWait = (
+        proposal: ICrispProposal,
+        state: ICrispRefundState,
+        step: CrispRefundStep | undefined,
+        now: number = Date.now(),
+    ): ICrispRefundWait | undefined => {
+        if (step === 'markFailed') {
+            const start = this.getMarkFailedStart(proposal, state);
+
+            return start != null && start > now
+                ? { reason: 'graceRunning', until: start }
+                : undefined;
+        }
+
+        if (step !== 'processFailure' || state.isSettlementOpen) {
+            return undefined;
+        }
+
+        const reportingEnd =
+            state.reportingDeadline == null
+                ? undefined
+                : state.reportingDeadline * 1000;
+
+        // Past the deadline the window only stays closed while a report is open
+        return reportingEnd != null && reportingEnd > now
+            ? { reason: 'reportingRunning', until: reportingEnd }
+            : { reason: 'reportsOpen' };
+    };
+
+    // The refund manager settles a round through the slashing manager frozen at its request
+    private fetchSettlement = async (params: {
+        chainId: number;
+        refundManager: Hex;
+        e3Id: bigint;
+    }): Promise<
+        Pick<ICrispRefundState, 'isSettlementOpen' | 'reportingDeadline'>
+    > => {
+        const { chainId, refundManager, e3Id } = params;
+
+        const { slashingManager } = await readContract(wagmiConfig, {
+            chainId,
+            address: refundManager,
+            abi: crispRefundManagerAbi,
+            functionName: 'getE3PolicySnapshot',
+            args: [e3Id],
+        });
+
+        const [isSettlementOpen, reportingDeadline] = await Promise.all([
+            readContract(wagmiConfig, {
+                chainId,
+                address: slashingManager,
+                abi: crispSlashingManagerAbi,
+                functionName: 'settlementOpen',
+                args: [e3Id],
+            }),
+            readContract(wagmiConfig, {
+                chainId,
+                address: slashingManager,
+                abi: crispSlashingManagerAbi,
+                functionName: 'accusationSubmissionDeadline',
+                args: [e3Id],
+            }),
+        ]);
+
+        return {
+            isSettlementOpen,
+            reportingDeadline:
+                reportingDeadline === BigInt(0)
+                    ? undefined
+                    : Number(reportingDeadline),
+        };
+    };
 }
 
 export const crispRefundUtils = new CrispRefundUtils();
