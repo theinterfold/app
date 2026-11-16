@@ -204,7 +204,7 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
                 </div>
             )}
             {canMask && !showOptions && (
-                <p className="font-normal text-neutral-500 text-sm leading-normal">
+                <p className="text-sm leading-normal font-normal text-neutral-500">
                     {t('app.plugins.crisp.crispSubmitVote.maskNote')}
                 </p>
             )}

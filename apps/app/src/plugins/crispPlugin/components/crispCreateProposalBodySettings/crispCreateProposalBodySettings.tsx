@@ -54,7 +54,7 @@ export const CrispCreateProposalBodySettings: React.FC<
 
     return (
         <div className="flex flex-col gap-3">
-            <p className="text-base text-neutral-800 leading-tight">
+            <p className="text-base leading-tight text-neutral-800">
                 {t('app.plugins.crisp.crispCreateProposalBodySettings.title', {
                     name: daoUtils.getPluginName(plugin),
                 })}

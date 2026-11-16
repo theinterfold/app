@@ -53,6 +53,7 @@ export const useCrispPermissionCheckVoteSubmission = (
     );
     const roundDivisor = votingPower?.votingPowerDivisor ?? BigInt(0);
     const minVotingPower =
+        // biome-ignore lint/complexity/useMathMinMax: bigint operands, which Math.max rejects
         roundDivisor > proposalMinVotingPower
             ? roundDivisor
             : proposalMinVotingPower;
