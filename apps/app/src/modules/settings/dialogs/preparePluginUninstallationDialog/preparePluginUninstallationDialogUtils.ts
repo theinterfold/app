@@ -36,7 +36,7 @@ class PreparePluginUninstallationDialogUtils {
             : pluginName;
     };
 
-    buildPrepareUninstallationTransaction = (
+    buildPrepareUninstallationTransaction = async (
         dao: IDao,
         plugin: IUninstallTarget,
     ): Promise<ITransactionRequest> => {
@@ -48,7 +48,7 @@ class PreparePluginUninstallationDialogUtils {
         // the plugin.
         const getHelpersFunction = pluginRegistryUtils.getSlotFunction<
             IGetUninstallHelpersParams,
-            Hex[]
+            Hex[] | Promise<Hex[]>
         >({
             slotId: SettingsSlotId.SETTINGS_GET_UNINSTALL_HELPERS,
             pluginId: plugin.interfaceType,
@@ -56,7 +56,7 @@ class PreparePluginUninstallationDialogUtils {
 
         const helpers = policyPluginRegistryUtils.isPolicy(plugin)
             ? []
-            : (getHelpersFunction?.({ plugin }) ?? []);
+            : ((await getHelpersFunction?.({ plugin, dao })) ?? []);
         const prepareUninstallData =
             pluginTransactionUtils.buildPrepareUninstallData(
                 dao,
@@ -65,11 +65,11 @@ class PreparePluginUninstallationDialogUtils {
                 '0x',
             );
 
-        return Promise.resolve({
+        return {
             data: prepareUninstallData,
             value: BigInt(0),
             to: pluginSetupProcessor,
-        });
+        };
     };
 
     prepareApplyUninstallationProposalMetadata = (

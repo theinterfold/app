@@ -203,7 +203,7 @@ class SppTransactionUtils {
     buildPrepareUpdateData = (): Hex => '0x';
 
     // Up to build 2 the processor emits `SubProposalNotCreated` instead of reverting when a body fails to
-    // create its proposal, e.g. when it runs out of gas, which leaves a proposal that can never pass.
+    // create its proposal, e.g. when it runs out of gas, which can leave a proposal that cannot pass.
     getSkippedBodies = (
         params: ICreateProposalSkippedBodiesParams,
     ): boolean => {

@@ -5,7 +5,9 @@ import { Network } from '@/shared/api/daoService';
 export interface ICrispE3Config {
     /**
      * Address of the Interfold (E3) coordinator a newly installed plugin requests its rounds from.
-     * Only an installation needs it, the runtime reads it back from the plugin (`interfold()`).
+     * The runtime also requires the `interfold()` of a plugin to equal it before it reads a round
+     * from the coordinator, so changing it for a network stops voting on the plugins installed
+     * against the previous address.
      */
     interfoldAddress: Hex;
     /**

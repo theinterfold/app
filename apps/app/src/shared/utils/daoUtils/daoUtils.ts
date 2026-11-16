@@ -336,9 +336,11 @@ class DaoUtils {
             // against the wrong repository.
             // A Safe is not installed from a plugin repository, so it pins down no install version
             // and can never offer an update.
+            // A plugin whose setup has no update path never offers an update, as preparing it would fail.
             if (
                 target?.installVersion == null ||
-                target.id !== plugin.interfaceType
+                target.id !== plugin.interfaceType ||
+                target.isUpdatable === false
             ) {
                 return false;
             }

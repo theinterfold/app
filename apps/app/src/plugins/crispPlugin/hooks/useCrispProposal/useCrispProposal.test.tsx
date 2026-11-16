@@ -240,6 +240,58 @@ describe('useCrispProposal', () => {
             });
         });
 
+        it('asks the coordinator nothing while the backend has not indexed the round of the proposal', async () => {
+            const client = new QueryClient();
+            const unindexed = { ...unmarked, e3Id: undefined };
+            getProposalBySlugSpy.mockResolvedValue(unindexed);
+
+            renderHook(() => useCrispProposal({ proposal: unindexed }), {
+                wrapper: buildWrapper(client),
+            });
+
+            await waitFor(() => {
+                expect(getProposalBySlugSpy).toHaveBeenCalled();
+            });
+            await act(async () => {
+                const { promise, resolve } = Promise.withResolvers<void>();
+                setTimeout(resolve, 0);
+                await promise;
+            });
+
+            const [failureConditionQuery] = client
+                .getQueryCache()
+                .findAll({ queryKey: ['crisp', 'failure-condition'] });
+            expect(failureConditionQuery.state.fetchStatus).toEqual('idle');
+            expect(failureConditionQuery.state.fetchFailureCount).toEqual(0);
+            expect(fetchFailureConditionSpy).not.toHaveBeenCalled();
+        });
+
+        it('asks the coordinator once the polled proposal reports the round the given proposal lacks', async () => {
+            fetchFailureConditionSpy.mockResolvedValue(
+                CrispE3FailureReason.DKG_TIMEOUT,
+            );
+            getProposalBySlugSpy.mockResolvedValue(unmarked);
+
+            const { result } = renderHook(
+                () =>
+                    useCrispProposal({
+                        proposal: { ...unmarked, e3Id: undefined },
+                    }),
+                { wrapper: buildWrapper() },
+            );
+
+            await waitFor(() => {
+                expect(result.current.proposal.failureReason).toEqual(
+                    CrispE3FailureReason.DKG_TIMEOUT,
+                );
+            });
+            expect(fetchFailureConditionSpy).toHaveBeenCalledWith({
+                chainId: 11_155_111,
+                pluginAddress,
+                e3Id: BigInt(7),
+            });
+        });
+
         it('leaves the proposal as served while the round can not be marked as failed', async () => {
             getProposalBySlugSpy.mockResolvedValue(unmarked);
 

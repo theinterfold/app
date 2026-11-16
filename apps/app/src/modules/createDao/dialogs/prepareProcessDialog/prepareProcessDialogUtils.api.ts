@@ -68,7 +68,8 @@ export interface IBuildProcessProposalActionsParams {
      */
     setupData: IPluginInstallationSetupData[];
     /**
-     * CIDs of the pinned metadata of the plugins to be installed, in installation order and without the processor.
+     * CIDs of the pinned metadata of the plugins to be installed, in installation order: the new stage bodies of an
+     * advanced process, or the process metadata of the single body of a basic one.
      */
     pluginsMetadata: string[];
     /**

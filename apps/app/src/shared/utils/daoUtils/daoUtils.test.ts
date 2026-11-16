@@ -1149,6 +1149,41 @@ describe('dao utils', () => {
             expect(daoUtils.getAvailablePluginUpdates(dao)).toEqual([]);
         });
 
+        it('excludes plugins whose setup has no update path and keeps offering the others', () => {
+            const plugins = [
+                generateDaoPlugin({
+                    interfaceType: PluginInterfaceType.CRISP,
+                    subdomain: 'crisp-voting',
+                    release: '1',
+                    build: '1',
+                }),
+                generateDaoPlugin({
+                    interfaceType: PluginInterfaceType.MULTISIG,
+                    subdomain: 'multisig',
+                    release: '1',
+                    build: '1',
+                }),
+            ];
+            const dao = generateDao({ plugins });
+            getPluginsSpy.mockReturnValue([
+                {
+                    id: PluginInterfaceType.CRISP,
+                    subdomain: 'crisp-voting',
+                    installVersion: { release: 1, build: 2 },
+                    isUpdatable: false,
+                } as IPluginInfo,
+                {
+                    id: PluginInterfaceType.MULTISIG,
+                    subdomain: 'multisig',
+                    installVersion: { release: 1, build: 2 },
+                } as IPluginInfo,
+            ]);
+
+            expect(daoUtils.getAvailablePluginUpdates(dao)).toEqual([
+                plugins[1],
+            ]);
+        });
+
         it('returns empty array when dao is not defined', () => {
             expect(daoUtils.getAvailablePluginUpdates(undefined)).toEqual([]);
         });

@@ -435,7 +435,7 @@ describe('<PublishProposalDialog /> component', () => {
         { hasSkippedBodies: true, isWarned: true },
         { hasSkippedBodies: false, isWarned: false },
     ])(
-        'warns that the proposal cannot pass only when the process skipped a body ($hasSkippedBodies)',
+        'warns that the proposal may not pass only when the process skipped a body ($hasSkippedBodies)',
         ({ hasSkippedBodies, isWarned }) => {
             getSlotFunctionSpy.mockImplementation(({ slotId }) =>
                 slotId ===

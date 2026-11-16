@@ -2,8 +2,17 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { erc20Abi, type Hex } from 'viem';
-import { useReadContract, useReadContracts, useWriteContract } from 'wagmi';
-import { readContract, waitForTransactionReceipt } from 'wagmi/actions';
+import {
+    useReadContract,
+    useReadContracts,
+    useSwitchChain,
+    useWriteContract,
+} from 'wagmi';
+import {
+    getConnection,
+    readContract,
+    waitForTransactionReceipt,
+} from 'wagmi/actions';
 import { wagmiConfig } from '@/modules/application/constants/wagmi';
 import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
 import { isUserRejectionError } from '@/modules/safe/hooks/useSafeTransactionExecution';
@@ -101,6 +110,7 @@ export const useCrispFeeCredits = (
     });
 
     const { writeContractAsync } = useWriteContract();
+    const { mutateAsync: switchChainAsync } = useSwitchChain();
 
     const fail = useCallback((failure: CrispDepositFailure): false => {
         setDepositFailure(failure);
@@ -152,6 +162,14 @@ export const useCrispFeeCredits = (
             // Checked before signing anything to not pay for an approval the deposit cannot use
             if (balance < amount) {
                 return fail('balance');
+            }
+
+            // The wallet only sends to the chain it is on, and this runs before the transactions
+            // of the publish dialog that would switch it.
+            const walletChainId = getConnection(wagmiConfig).chainId;
+
+            if (walletChainId != null && walletChainId !== chainId) {
+                await switchChainAsync({ chainId });
             }
 
             if (allowance < amount) {
@@ -216,6 +234,7 @@ export const useCrispFeeCredits = (
         chainId,
         address,
         pluginAddress,
+        switchChainAsync,
         writeContractAsync,
         fail,
         refetchCredit,

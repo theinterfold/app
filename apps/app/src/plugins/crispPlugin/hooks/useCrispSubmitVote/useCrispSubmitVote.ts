@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { type Hex, isAddressEqual, size } from 'viem';
 import { useSignTypedData, useSwitchChain, useWriteContract } from 'wagmi';
+import { getConnection } from 'wagmi/actions';
+import { wagmiConfig } from '@/modules/application/constants/wagmi';
 import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
 import type { VoteOption } from '@/plugins/tokenPlugin/types';
 import { networkDefinitions } from '@/shared/constants/networkDefinitions';
@@ -172,7 +174,7 @@ export const useCrispSubmitVote = (
             ? CrispSubmitVoteMethod.RELAY
             : (params.method ?? CrispSubmitVoteMethod.RELAY);
 
-    const { address, chainId: walletChainId } = useWalletAccount();
+    const { address } = useWalletAccount();
     const { id: chainId } = networkDefinitions[network];
 
     const { signTypedDataAsync } = useSignTypedData();
@@ -199,18 +201,17 @@ export const useCrispSubmitVote = (
 
     // The round is only known once the proposal is resolved on-chain.
     const hasRound = e3Id != null && e3Id !== '';
-    const roundParams = { network, e3Id };
 
     const {
         roundState,
         roundError,
         isRoundReady,
         isLoading: isRoundLoading,
-    } = useCrispRound(roundParams);
+    } = useCrispRound({ network, e3Id });
 
     const { data: voteStatus, isLoading: isVoteStatusLoading } =
         useCrispVoteStatus(
-            { ...roundParams, address: address ?? '' },
+            { network, e3Id: e3Id ?? '', address: address ?? '' },
             { enabled: hasRound && address != null && !isMask },
         );
 
@@ -260,7 +261,11 @@ export const useCrispSubmitVote = (
               })
             : undefined;
 
+    // The wallet chain is read when called, as the wallet may have moved since the run started
+    // and the wallet send can come minutes after.
     const switchToDaoChain = async () => {
+        const walletChainId = getConnection(wagmiConfig).chainId;
+
         if (walletChainId != null && walletChainId !== chainId) {
             await switchChainAsync({ chainId });
         }
@@ -281,7 +286,7 @@ export const useCrispSubmitVote = (
                 );
             }
 
-            if (roundState == null || !isRoundReady) {
+            if (!hasRound || roundState == null || !isRoundReady) {
                 throw new CrispError(
                     'app.plugins.crisp.crispSubmitVoteDialog.error.roundNotAccepting',
                 );
@@ -380,11 +385,20 @@ export const useCrispSubmitVote = (
                     digest,
                 });
             } else {
+                // Encrypting takes a while, so the dialog may be gone before any wallet prompt.
+                if (!isMounted.current) {
+                    return;
+                }
+
                 setActiveStep(CrispSubmitVoteStep.SIGN);
 
                 // The wallet only signs for the chain it is on, and a relayed ballot sends no
                 // transaction that would switch it.
                 await switchToDaoChain();
+
+                if (!isMounted.current) {
+                    return;
+                }
 
                 const signature = await signTypedDataAsync(
                     crispBallotUtils.buildBallotSignatureRequest({
@@ -404,6 +418,11 @@ export const useCrispSubmitVote = (
                     );
                 }
 
+                // Proving takes minutes in the tab of a voter who may have left at the prompt.
+                if (!isMounted.current) {
+                    return;
+                }
+
                 setActiveStep(CrispSubmitVoteStep.PROVE);
 
                 encodedProof = await crispSdkUtils.finishBallot({
@@ -419,6 +438,11 @@ export const useCrispSubmitVote = (
                 e3Id: roundId,
                 identity: await crispSdkUtils.decodeInputIdentity(encodedProof),
             };
+
+            // The ballot is only staged for a voter who is still there to see the outcome.
+            if (!isMounted.current) {
+                return;
+            }
 
             setActiveStep(CrispSubmitVoteStep.BROADCAST);
 
@@ -461,6 +485,10 @@ export const useCrispSubmitVote = (
 
                 setIsWalletSubmission(true);
                 await switchToDaoChain();
+
+                if (!isMounted.current) {
+                    return;
+                }
 
                 hash = await writeContractAsync({
                     address: context.programAddress,

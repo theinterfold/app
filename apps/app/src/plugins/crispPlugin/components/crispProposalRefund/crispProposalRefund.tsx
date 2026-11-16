@@ -56,7 +56,7 @@ export const CrispProposalRefund: React.FC<ICrispProposalRefundProps> = (
     };
 
     const handleRefund = () => {
-        if (state == null || step == null) {
+        if (state == null || step == null || e3Id == null || e3Id === '') {
             return;
         }
 

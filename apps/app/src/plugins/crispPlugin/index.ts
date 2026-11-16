@@ -163,6 +163,11 @@ export const initialiseCrispPlugin = () => {
             pluginId: crispPlugin.id,
             function: crispBodyUtils.pluginToFormData,
         })
+        .registerSlotFunction({
+            slotId: SettingsSlotId.SETTINGS_GET_UNINSTALL_HELPERS,
+            pluginId: crispPlugin.id,
+            function: crispTransactionUtils.getUninstallHelpers,
+        })
 
         // Create DAO module slots
         .registerSlotFunction({

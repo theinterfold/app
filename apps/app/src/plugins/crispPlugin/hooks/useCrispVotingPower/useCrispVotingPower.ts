@@ -1,5 +1,6 @@
 'use client';
 
+import { invariant } from '@aragon/gov-ui-kit';
 import { useQuery } from '@tanstack/react-query';
 import type { Hex } from 'viem';
 import type { ICrispProposal } from '../../types';
@@ -56,19 +57,23 @@ export const useCrispVotingPower = (
             address,
         ],
         queryFn: async () => {
-            const { network, pluginAddress, settings } = proposal!;
+            invariant(
+                proposal != null && e3Id != null && e3Id !== '',
+                'useCrispVotingPower: the round of the proposal is not indexed.',
+            );
+            const { network, pluginAddress, settings } = proposal;
 
             const { programAddress } = await crispRoundUtils.readE3Record({
                 network,
                 pluginAddress: pluginAddress as Hex,
-                e3Id: BigInt(e3Id!),
+                e3Id: BigInt(e3Id),
             });
 
             return crispRoundUtils.readVotingPower({
                 network,
                 programAddress,
                 tokenAddress: settings.token.address as Hex,
-                e3Id: BigInt(e3Id!),
+                e3Id: BigInt(e3Id),
                 slot: address as Hex,
             });
         },

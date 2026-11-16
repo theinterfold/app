@@ -15,6 +15,10 @@ export interface IParseCrispSettingsParams {
      */
     settings: ICrispPluginSettings;
     /**
+     * Defines if the voting is to veto or not.
+     */
+    isVeto?: boolean;
+    /**
      * The translation function for internationalization.
      */
     t: TranslationFunction;
@@ -24,7 +28,7 @@ class CrispSettingsUtils {
     parseSettings = (
         params: IParseCrispSettingsParams,
     ): IDefinitionSetting[] => {
-        const { settings, t } = params;
+        const { settings, isVeto, t } = params;
         const {
             minParticipation,
             supportThreshold,
@@ -34,6 +38,50 @@ class CrispSettingsUtils {
             token,
             historicalTotalSupply,
         } = settings;
+
+        const ballotPrivacySetting = {
+            term: t('app.plugins.crisp.crispGovernanceSettings.ballotPrivacy'),
+            definition: t(
+                'app.plugins.crisp.crispGovernanceSettings.encrypted',
+            ),
+        };
+
+        const formattedSupportThreshold = formatterUtils.formatNumber(
+            supportThreshold / 100,
+            { format: NumberFormat.PERCENTAGE_LONG },
+        );
+        const thresholdSetting = {
+            term: t(
+                `app.plugins.crisp.crispGovernanceSettings.${isVeto ? 'vetoThreshold' : 'approvalThreshold'}`,
+            ),
+            definition: t(
+                'app.plugins.crisp.crispGovernanceSettings.threshold',
+                {
+                    threshold: formattedSupportThreshold,
+                },
+            ),
+        };
+
+        const duration = dateUtils.secondsToDuration(minDuration);
+        const durationSetting = {
+            term: t(
+                'app.plugins.crisp.crispGovernanceSettings.minimumDuration',
+            ),
+            definition: t(
+                'app.plugins.crisp.crispGovernanceSettings.duration',
+                {
+                    days: duration.days,
+                    hours: duration.hours,
+                    minutes: duration.minutes,
+                },
+            ),
+        };
+
+        // Sub-proposal settings of an SPP body can arrive without their token (not indexed yet); the
+        // rows that need it are left out rather than failing the whole panel.
+        if (token == null) {
+            return [ballotPrivacySetting, thresholdSetting, durationSetting];
+        }
 
         const { symbol: tokenSymbol, totalSupply, decimals } = token;
         const processedTotalSupply = historicalTotalSupply ?? totalSupply;
@@ -57,39 +105,9 @@ class CrispSettingsUtils {
             { format: NumberFormat.TOKEN_AMOUNT_SHORT },
         );
 
-        const formattedSupportThreshold = formatterUtils.formatNumber(
-            supportThreshold / 100,
-            { format: NumberFormat.PERCENTAGE_LONG },
-        );
-
-        const duration = dateUtils.secondsToDuration(minDuration);
-        const formattedDuration = t(
-            'app.plugins.crisp.crispGovernanceSettings.duration',
-            {
-                days: duration.days,
-                hours: duration.hours,
-                minutes: duration.minutes,
-            },
-        );
-
         return [
-            {
-                term: t(
-                    'app.plugins.crisp.crispGovernanceSettings.ballotPrivacy',
-                ),
-                definition: t(
-                    'app.plugins.crisp.crispGovernanceSettings.encrypted',
-                ),
-            },
-            {
-                term: t(
-                    'app.plugins.crisp.crispGovernanceSettings.approvalThreshold',
-                ),
-                definition: t(
-                    'app.plugins.crisp.crispGovernanceSettings.threshold',
-                    { threshold: formattedSupportThreshold },
-                ),
-            },
+            ballotPrivacySetting,
+            thresholdSetting,
             {
                 term: t(
                     'app.plugins.crisp.crispGovernanceSettings.minimumParticipation',
@@ -103,12 +121,7 @@ class CrispSettingsUtils {
                     },
                 ),
             },
-            {
-                term: t(
-                    'app.plugins.crisp.crispGovernanceSettings.minimumDuration',
-                ),
-                definition: formattedDuration,
-            },
+            durationSetting,
             {
                 term: t(
                     'app.plugins.crisp.crispGovernanceSettings.proposalThreshold',

@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import * as wagmi from 'wagmi';
+import * as wagmiActions from 'wagmi/actions';
 import { generateTokenPluginSettingsToken } from '@/plugins/tokenPlugin/testUtils';
 import { VoteOption } from '@/plugins/tokenPlugin/types';
 import { Network } from '@/shared/api/daoService';
@@ -51,6 +52,7 @@ describe('useCrispSubmitVote', () => {
     const useSignTypedDataSpy = jest.spyOn(wagmi, 'useSignTypedData');
     const useSwitchChainSpy = jest.spyOn(wagmi, 'useSwitchChain');
     const useWriteContractSpy = jest.spyOn(wagmi, 'useWriteContract');
+    const getConnectionSpy = jest.spyOn(wagmiActions, 'getConnection');
 
     const signTypedDataAsync = jest.fn();
     const switchChainAsync = jest.fn();
@@ -116,8 +118,11 @@ describe('useCrispSubmitVote', () => {
         );
         useConnectionSpy.mockReturnValue({
             address,
-            chainId: 11_155_111,
         } as unknown as wagmi.UseConnectionReturnType);
+        getConnectionSpy.mockReset();
+        getConnectionSpy.mockReturnValue({ chainId: 11_155_111 } as never);
+        switchChainAsync.mockReset();
+        switchChainAsync.mockResolvedValue(undefined);
         useSignTypedDataSpy.mockReturnValue({
             signTypedDataAsync,
         } as unknown as wagmi.UseSignTypedDataReturnType);
@@ -329,10 +334,7 @@ describe('useCrispSubmitVote', () => {
 
     it('moves the wallet to the DAO chain before signing', async () => {
         mockQueries();
-        useConnectionSpy.mockReturnValue({
-            address,
-            chainId: 1,
-        } as unknown as wagmi.UseConnectionReturnType);
+        getConnectionSpy.mockReturnValue({ chainId: 1 } as never);
 
         const { result } = renderHook(() =>
             useCrispSubmitVote({ proposal, voteOption: VoteOption.YES }),
@@ -343,6 +345,193 @@ describe('useCrispSubmitVote', () => {
         await waitFor(() => expect(result.current.state).toEqual('success'));
 
         expect(switchChainAsync).toHaveBeenCalledWith({ chainId: 11_155_111 });
+    });
+
+    it('reads the wallet chain when sending the ballot, not when the run started', async () => {
+        mockQueries();
+        // On the DAO chain for the signature, moved away before the wallet sends the ballot
+        getConnectionSpy
+            .mockReturnValueOnce({ chainId: 11_155_111 } as never)
+            .mockReturnValue({ chainId: 1 } as never);
+        broadcastSpy.mockResolvedValue({
+            status: 'ready_for_commitment',
+            tx_hash: null,
+            job_id: 'job-1',
+            encoded_proof: attestedPayload,
+            message: null,
+        });
+
+        const { result } = renderHook(() =>
+            useCrispSubmitVote({ proposal, voteOption: VoteOption.YES }),
+        );
+
+        act(() => result.current.submitVote());
+
+        await waitFor(() => expect(writeContractAsync).toHaveBeenCalled());
+
+        expect(switchChainAsync).toHaveBeenCalledTimes(1);
+        expect(switchChainAsync).toHaveBeenCalledWith({ chainId: 11_155_111 });
+        expect(switchChainAsync.mock.invocationCallOrder[0]).toBeLessThan(
+            writeContractAsync.mock.invocationCallOrder[0],
+        );
+    });
+
+    describe('when the dialog is closed while the flow runs', () => {
+        // The guarded flow emits nothing once the dialog is gone, so there is no signal to await:
+        // one macrotask lets the mocked promise chain run to its end.
+        const settle = () =>
+            act(async () => {
+                await new Promise((resolve) => setTimeout(resolve, 0));
+            });
+
+        it('opens no wallet prompt when it closes while encrypting', async () => {
+            mockQueries();
+            getConnectionSpy.mockReturnValue({ chainId: 1 } as never);
+            const prepared = Promise.withResolvers<never>();
+            prepareBallotSpy.mockReturnValue(prepared.promise);
+
+            const { result, unmount } = renderHook(() =>
+                useCrispSubmitVote({ proposal, voteOption: VoteOption.YES }),
+            );
+
+            act(() => result.current.submitVote());
+            await waitFor(() => expect(prepareBallotSpy).toHaveBeenCalled());
+
+            unmount();
+            prepared.resolve({ ctCommitment: '0xcommitment' } as never);
+            await settle();
+
+            expect(switchChainAsync).not.toHaveBeenCalled();
+            expect(signTypedDataAsync).not.toHaveBeenCalled();
+            expect(broadcastSpy).not.toHaveBeenCalled();
+        });
+
+        it('does not ask for a signature when it closes during the chain switch', async () => {
+            mockQueries();
+            getConnectionSpy.mockReturnValue({ chainId: 1 } as never);
+            const switched = Promise.withResolvers<undefined>();
+            switchChainAsync.mockReturnValue(switched.promise);
+
+            const { result, unmount } = renderHook(() =>
+                useCrispSubmitVote({ proposal, voteOption: VoteOption.YES }),
+            );
+
+            act(() => result.current.submitVote());
+            await waitFor(() => expect(switchChainAsync).toHaveBeenCalled());
+
+            unmount();
+            switched.resolve(undefined);
+            await settle();
+
+            expect(signTypedDataAsync).not.toHaveBeenCalled();
+            expect(broadcastSpy).not.toHaveBeenCalled();
+        });
+
+        it('does not prove the ballot when it closes during the signature prompt', async () => {
+            mockQueries();
+            const signed = Promise.withResolvers<`0x${string}`>();
+            signTypedDataAsync.mockReturnValue(signed.promise);
+
+            const { result, unmount } = renderHook(() =>
+                useCrispSubmitVote({ proposal, voteOption: VoteOption.YES }),
+            );
+
+            act(() => result.current.submitVote());
+            await waitFor(() => expect(signTypedDataAsync).toHaveBeenCalled());
+
+            unmount();
+            signed.resolve(signature as `0x${string}`);
+            await settle();
+
+            expect(finishBallotSpy).not.toHaveBeenCalled();
+            expect(broadcastSpy).not.toHaveBeenCalled();
+        });
+
+        it('does not broadcast the ballot when it closes while proving', async () => {
+            mockQueries();
+            const proved = Promise.withResolvers<`0x${string}`>();
+            finishBallotSpy.mockReturnValue(proved.promise);
+
+            const { result, unmount } = renderHook(() =>
+                useCrispSubmitVote({ proposal, voteOption: VoteOption.YES }),
+            );
+
+            act(() => result.current.submitVote());
+            await waitFor(() => expect(finishBallotSpy).toHaveBeenCalled());
+
+            unmount();
+            proved.resolve('0xclientproof');
+            await settle();
+
+            expect(broadcastSpy).not.toHaveBeenCalled();
+            expect(writeContractAsync).not.toHaveBeenCalled();
+        });
+
+        it('opens no chain switch for the wallet send when it closes while the server picks the sender', async () => {
+            mockQueries();
+            // Right for the signature, then moved away while the server picks the sender
+            getConnectionSpy
+                .mockReturnValueOnce({ chainId: 11_155_111 } as never)
+                .mockReturnValue({ chainId: 1 } as never);
+            broadcastSpy.mockResolvedValue({
+                status: 'pending_commitment',
+                tx_hash: null,
+                job_id: 'job-1',
+                encoded_proof: null,
+                message: null,
+            });
+            const available = Promise.withResolvers<never>();
+            availabilitySpy.mockReturnValue(available.promise);
+
+            const { result, unmount } = renderHook(() =>
+                useCrispSubmitVote({ proposal, voteOption: VoteOption.YES }),
+            );
+
+            act(() => result.current.submitVote());
+            await waitFor(() => expect(availabilitySpy).toHaveBeenCalled());
+
+            unmount();
+            available.resolve({
+                status: 'ready_for_commitment',
+                tx_hash: null,
+                job_id: 'job-1',
+                encoded_proof: attestedPayload,
+                message: null,
+            } as never);
+            await settle();
+
+            expect(switchChainAsync).not.toHaveBeenCalled();
+            expect(writeContractAsync).not.toHaveBeenCalled();
+        });
+
+        it('does not send the ballot from the wallet when it closes during the chain switch', async () => {
+            mockQueries();
+            getConnectionSpy
+                .mockReturnValueOnce({ chainId: 11_155_111 } as never)
+                .mockReturnValue({ chainId: 1 } as never);
+            broadcastSpy.mockResolvedValue({
+                status: 'ready_for_commitment',
+                tx_hash: null,
+                job_id: 'job-1',
+                encoded_proof: attestedPayload,
+                message: null,
+            });
+            const switched = Promise.withResolvers<undefined>();
+            switchChainAsync.mockReturnValue(switched.promise);
+
+            const { result, unmount } = renderHook(() =>
+                useCrispSubmitVote({ proposal, voteOption: VoteOption.YES }),
+            );
+
+            act(() => result.current.submitVote());
+            await waitFor(() => expect(switchChainAsync).toHaveBeenCalled());
+
+            unmount();
+            switched.resolve(undefined);
+            await settle();
+
+            expect(writeContractAsync).not.toHaveBeenCalled();
+        });
     });
 
     it('refuses a smart-contract signature the circuit cannot verify', async () => {
@@ -707,7 +896,6 @@ describe('useCrispSubmitVote', () => {
                     'app.plugins.crisp.crispSubmitVoteDialog.error.maskNotRelayed',
             });
             expect(writeContractAsync).not.toHaveBeenCalled();
-            expect(switchChainAsync).not.toHaveBeenCalled();
             expect(result.current.isWalletSubmission).toBe(false);
         });
 
@@ -893,7 +1081,6 @@ describe('useCrispSubmitVote', () => {
                     'app.plugins.crisp.crispSubmitVoteDialog.error.attestedPayloadMismatch',
             });
             expect(writeContractAsync).not.toHaveBeenCalled();
-            expect(switchChainAsync).not.toHaveBeenCalled();
         });
 
         it('does not report success of a wallet submission the chain does not confirm', async () => {

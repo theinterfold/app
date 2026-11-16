@@ -40,5 +40,40 @@ describe('crispSettings utils', () => {
                 /days=1,hours=1,minutes=0/,
             );
         });
+
+        it('labels the threshold as a veto threshold for a veto body', () => {
+            const result = crispSettingsUtils.parseSettings({
+                settings: generateCrispPluginSettings({ supportThreshold: 40 }),
+                isVeto: true,
+                t: mockTranslations.tMock,
+            });
+
+            expect(definitionOf(result, /vetoThreshold/)).toMatch(
+                /threshold=40/,
+            );
+            expect(definitionOf(result, /approvalThreshold/)).toBeUndefined();
+        });
+
+        it('leaves out the rows that need the token when the settings arrive without it', () => {
+            const settings = generateCrispPluginSettings({
+                supportThreshold: 66,
+                minDuration: 90_000,
+            });
+            const result = crispSettingsUtils.parseSettings({
+                settings: { ...settings, token: undefined as never },
+                t: mockTranslations.tMock,
+            });
+
+            expect(definitionOf(result, /approvalThreshold/)).toMatch(
+                /threshold=66/,
+            );
+            expect(definitionOf(result, /minimumDuration/)).toMatch(
+                /days=1,hours=1,minutes=0/,
+            );
+            expect(definitionOf(result, /voteThreshold/)).toBeUndefined();
+            expect(
+                definitionOf(result, /minimumParticipation/),
+            ).toBeUndefined();
+        });
     });
 });
