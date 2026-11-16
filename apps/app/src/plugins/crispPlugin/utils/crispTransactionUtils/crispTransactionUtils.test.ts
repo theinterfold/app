@@ -1,6 +1,8 @@
 import { decodeAbiParameters, decodeFunctionData, type Hex } from 'viem';
 import { setMetadataAbi } from '@/modules/governance/constants/setMetadataAbi';
+import { settingsService } from '@/modules/settings/api/settingsService';
 import { Network } from '@/shared/api/daoService';
+import { generateDao, generateDaoPlugin } from '@/shared/testUtils';
 import { pluginTransactionUtils } from '@/shared/utils/pluginTransactionUtils';
 import { crispE3Config } from '../../constants/crispE3Config';
 import { generateCrispPluginSettings } from '../../testUtils';
@@ -202,6 +204,75 @@ describe('crispTransaction utils', () => {
                     data: actions[0].data,
                 }),
             ).toEqual({ functionName: 'setMetadata', args: [metadata] });
+        });
+    });
+
+    describe('getUninstallHelpers', () => {
+        const pluginAddress = '0x3333333333333333333333333333333333333333';
+        const conditionAddress = '0x4444444444444444444444444444444444444444';
+        const dao = generateDao({ network: Network.ETHEREUM_SEPOLIA });
+
+        const getInstallationDataSpy = jest.spyOn(
+            settingsService,
+            'getPluginInstallationData',
+        );
+
+        afterEach(() => {
+            getInstallationDataSpy.mockReset();
+        });
+
+        it('returns no helpers for a plugin installed from build 1, as the setup prepared none', async () => {
+            const plugin = generateDaoPlugin({
+                address: pluginAddress,
+                release: '1',
+                build: '1',
+            });
+
+            const helpers = await crispTransactionUtils.getUninstallHelpers({
+                plugin,
+                dao,
+            });
+
+            expect(helpers).toEqual([]);
+            expect(getInstallationDataSpy).not.toHaveBeenCalled();
+        });
+
+        it('returns the helpers prepared by the installation of a plugin installed from build 2', async () => {
+            getInstallationDataSpy.mockResolvedValue({
+                preparedSetupData: { helpers: [conditionAddress] },
+            });
+            const plugin = generateDaoPlugin({
+                address: pluginAddress,
+                release: '1',
+                build: '2',
+            });
+
+            const helpers = await crispTransactionUtils.getUninstallHelpers({
+                plugin,
+                dao,
+            });
+
+            expect(getInstallationDataSpy).toHaveBeenCalledWith({
+                queryParams: {
+                    pluginAddress,
+                    network: Network.ETHEREUM_SEPOLIA,
+                },
+            });
+            expect(helpers).toEqual([conditionAddress]);
+        });
+
+        it('throws a clear error when the backend has no installation data of the plugin', async () => {
+            // The backend answers with no content, which the service types as data
+            getInstallationDataSpy.mockResolvedValue(null as never);
+            const plugin = generateDaoPlugin({
+                address: pluginAddress,
+                release: '1',
+                build: '2',
+            });
+
+            await expect(
+                crispTransactionUtils.getUninstallHelpers({ plugin, dao }),
+            ).rejects.toThrow(/no installation data found/);
         });
     });
 });

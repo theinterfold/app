@@ -45,7 +45,16 @@ export const CrispProposalVotingBreakdown: React.FC<
         proposal.settings;
 
     if (proposal.failureReason != null && !proposal.executed.status) {
-        return <CrispProposalRefund proposal={proposal} />;
+        // The children hold the controls of the SPP stage, which a failed round must not hide
+        return (
+            <Tabs.Content
+                className="flex flex-col gap-4"
+                value={ProposalVotingTab.BREAKDOWN}
+            >
+                <CrispProposalRefund proposal={proposal} />
+                {children}
+            </Tabs.Content>
+        );
     }
 
     // Encrypted until the committee publishes the tally and the divisor that turns its counts

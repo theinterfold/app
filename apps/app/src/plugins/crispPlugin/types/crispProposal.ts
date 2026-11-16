@@ -9,9 +9,10 @@ export interface ICrispProposal extends Omit<ITokenProposal, 'settings'> {
      */
     settings: ICrispPluginSettings;
     /**
-     * Identifier of the Interfold (E3) round tallying the ballots.
+     * Identifier of the Interfold (E3) round tallying the ballots. Undefined until the backend has
+     * indexed the round of the proposal.
      */
-    e3Id: string;
+    e3Id?: string;
     /**
      * Defines if the decrypted tally is known, either published by the ciphernode committee or
      * stored on execution. The votes-by-option metrics are only populated once it is.

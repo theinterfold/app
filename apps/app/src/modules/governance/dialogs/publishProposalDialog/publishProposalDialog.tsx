@@ -282,7 +282,7 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
                     message={t(
                         'app.governance.publishProposalDialog.skippedBodies',
                     )}
-                    variant="critical"
+                    variant="warning"
                 />
             )}
             {rendersProposalStatusCard && (

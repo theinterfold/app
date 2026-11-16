@@ -2457,7 +2457,7 @@
           "success": "View proposal"
         },
         "description": "To publish your proposal, confirm the onchain transaction in your wallet.",
-        "skippedBodies": "The proposal was created, but one of its voting bodies could not open its vote, so the proposal cannot pass. Create the proposal again and keep the gas limit suggested by the app if your wallet lets you change it.",
+        "skippedBodies": "The proposal was created, but one of its voting bodies could not open its vote, so the proposal may not be able to pass. This can happen when the transaction runs out of gas: create the proposal again without lowering the gas limit in your wallet.",
         "step": {
           "PIN_METADATA": {
             "errorLabel": "Unable to pin data on IPFS",
@@ -2743,6 +2743,7 @@
           "participation": "≥ {{participation}}  (≥ {{tokenValue}} {{tokenSymbol}})",
           "proposalThreshold": "Proposal creation",
           "threshold": "> {{threshold}}",
+          "vetoThreshold": "Veto support threshold",
           "voteThreshold": "Vote eligibility",
           "votingPowerAccess": "Members with ≥ {{balance}} {{symbol}} voting power"
         },
@@ -2776,7 +2777,7 @@
           "tokenTerm": "Token"
         },
         "crispProposalCreationSettings": {
-          "notSupported": "CRISP does not provide a proposal creation condition, so it cannot restrict who creates proposals in a staged process. Allow anyone, add an existing condition, or add a body that can create proposals."
+          "notSupported": "The proposal creation condition of a CRISP body that is already installed cannot be read, so it cannot restrict who creates proposals in a staged process. Allow anyone, add an existing condition, or add a body that can create proposals."
         },
         "crispProposalRefund": {
           "cause": {

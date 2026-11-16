@@ -92,7 +92,12 @@ credit, which the fee card of the creation wizard offers as well.
   `helpers[0]`, which grants by the plugin's own proposer rule (`isProposerEligible`). The process
   wizard adds it to the creation rules of a new staged process, like the `VotingPowerCondition` of
   token voting. Build 1 returns no helper, so a body installed from it cannot restrict proposal
-  creation in a staged process.
+  creation in a staged process. The setup grants the condition through no permission, so the backend
+  never reports it for an installed plugin (`proposalCreationConditionAddress` is the zero address,
+  whatever the build): an existing CRISP body added to a new process is always shown as not
+  selectable (`CrispProposalCreationSettings`).
+- The setup has no update path (`isUpdatable: false`), so a plugin installed from an older build is
+  never offered an update.
 - The creator pays the E3 fee from a credit held on the plugin. The publish dialog adds a top-up
   step when the credit does not cover the quote (`useCrispCreateProposalPrerequisiteSteps`), for a
   proposal created directly and through a staged process alike. The step names the amount it

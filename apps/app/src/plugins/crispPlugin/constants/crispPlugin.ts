@@ -13,6 +13,8 @@ export const crispPlugin: IPluginInfo = {
         description:
             'Adds a proposal-creation condition, so a staged process can require the same voting power to create a proposal as the plugin does.',
     },
+    // The setup has no update path, a plugin installed from an older build keeps its build
+    isUpdatable: false,
     // The plugin is hidden on networks with a zero repository address, it needs a live Interfold
     // deployment (see crispE3Config)
     repositoryAddresses: {

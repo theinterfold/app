@@ -26,7 +26,9 @@ describe('useCrispFeeCredits hook', () => {
     const useReadContractSpy = jest.spyOn(wagmi, 'useReadContract');
     const useReadContractsSpy = jest.spyOn(wagmi, 'useReadContracts');
     const useWriteContractSpy = jest.spyOn(wagmi, 'useWriteContract');
+    const useSwitchChainSpy = jest.spyOn(wagmi, 'useSwitchChain');
     const readContractSpy = jest.spyOn(wagmiActions, 'readContract');
+    const getConnectionSpy = jest.spyOn(wagmiActions, 'getConnection');
     const waitForReceiptSpy = jest.spyOn(
         wagmiActions,
         'waitForTransactionReceipt',
@@ -35,11 +37,13 @@ describe('useCrispFeeCredits hook', () => {
 
     const writeContractAsync = jest.fn();
     const refetchCredit = jest.fn();
+    const switchChainAsync = jest.fn();
 
     beforeEach(() => {
         useWalletAccountSpy.mockReturnValue({
             address: '0xabc0000000000000000000000000000000000001',
         } as never);
+        getConnectionSpy.mockReturnValue({ chainId: 11_155_111 } as never);
         useDaoChainSpy.mockReturnValue({ chainId: 11_155_111 } as never);
         useTokenSpy.mockReturnValue({
             data: { decimals: 6, symbol: 'USDC' },
@@ -60,6 +64,9 @@ describe('useCrispFeeCredits hook', () => {
             isLoading: false,
         } as never);
         useWriteContractSpy.mockReturnValue({ writeContractAsync } as never);
+        useSwitchChainSpy.mockReturnValue({
+            mutateAsync: switchChainAsync,
+        } as never);
         // Enough balance and allowance: the deposit is the only transaction
         readContractSpy.mockResolvedValue(BigInt(1000) as never);
         writeContractAsync.mockResolvedValue('0xdead');
@@ -95,6 +102,40 @@ describe('useCrispFeeCredits hook', () => {
         expect(deposited).toBeTruthy();
         expect(depositFailure).toBeUndefined();
         expect(refetchCredit).toHaveBeenCalled();
+    });
+
+    it('moves the wallet to the DAO chain before sending the deposit', async () => {
+        getConnectionSpy.mockReturnValue({ chainId: 1 } as never);
+        waitForReceiptSpy.mockResolvedValue({ status: 'success' } as never);
+
+        const { deposited } = await deposit();
+
+        expect(deposited).toBeTruthy();
+        expect(switchChainAsync).toHaveBeenCalledWith({ chainId: 11_155_111 });
+        expect(switchChainAsync.mock.invocationCallOrder[0]).toBeLessThan(
+            writeContractAsync.mock.invocationCallOrder[0],
+        );
+    });
+
+    it('does not switch the wallet already on the DAO chain', async () => {
+        waitForReceiptSpy.mockResolvedValue({ status: 'success' } as never);
+
+        await deposit();
+
+        expect(switchChainAsync).not.toHaveBeenCalled();
+    });
+
+    it('reports a chain switch declined in the wallet without sending anything', async () => {
+        getConnectionSpy.mockReturnValue({ chainId: 1 } as never);
+        switchChainAsync.mockRejectedValue(
+            new UserRejectedRequestError(new Error('User denied')),
+        );
+
+        const { deposited, depositFailure } = await deposit();
+
+        expect(deposited).toBeFalsy();
+        expect(depositFailure).toEqual('rejected');
+        expect(writeContractAsync).not.toHaveBeenCalled();
     });
 
     it('fails when the deposit is mined but reverted', async () => {

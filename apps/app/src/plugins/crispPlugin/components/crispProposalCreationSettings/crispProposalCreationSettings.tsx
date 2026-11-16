@@ -12,9 +12,12 @@ import { useTranslations } from '@/shared/components/translationsProvider';
 import { useFormField } from '@/shared/hooks/useFormField';
 
 /**
- * In a staged process the proposal creation rule is built from the condition contracts installed
- * by the bodies, and CRISP installs none, so the body is shown as not selectable. In a simple
- * process the plugin itself enforces the voting power of the proposer, as the token plugin does.
+ * The plugin enforces the voting power of the proposer itself, so a simple process, like the token
+ * plugin, only needs the minimum voting power to be set. In a staged process the creation rule is
+ * built from the proposal-creation condition returned by the setup of the bodies (`helpers[0]`, from
+ * build 2 of CRISP), which applies the same rule: a new body can be selected like a token voting body.
+ * An existing body is shown as not selectable: the condition of an installed CRISP body is not
+ * referenced by any permission, so the app cannot know it.
  */
 export const CrispProposalCreationSettings: React.FC<
     ITokenProposalCreationSettingsProps
@@ -26,24 +29,26 @@ export const CrispProposalCreationSettings: React.FC<
     // Bodies of a staged process are located under `stages.<n>.bodies.<m>`
     const isStaged = formPrefix.startsWith('stages.');
 
+    const existingStagedBody =
+        isStaged && body.type === BodyType.EXISTING ? body : undefined;
+    const isExistingStagedBody = existingStagedBody != null;
+
     const { onChange: onCreateProposalChange } = useFormField<
         ISetupBodyForm,
         'canCreateProposal'
     >('canCreateProposal', { fieldPrefix: formPrefix, defaultValue: true });
 
     useEffect(() => {
-        if (isStaged) {
+        if (isExistingStagedBody) {
             onCreateProposalChange(false);
         }
-    }, [isStaged, onCreateProposalChange]);
+    }, [isExistingStagedBody, onCreateProposalChange]);
 
-    if (!isStaged) {
+    if (existingStagedBody == null) {
         return <TokenProposalCreationSettings {...props} />;
     }
 
-    const name = body.type === BodyType.EXTERNAL ? '' : (body.name ?? '');
-    const description =
-        body.type === BodyType.EXTERNAL ? undefined : body.description;
+    const { name = '', description } = existingStagedBody;
 
     // The card renders its children only when checked, so the reason sits below it
     return (

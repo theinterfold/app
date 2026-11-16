@@ -43,12 +43,20 @@ export interface IUseCrispRoundResult {
     isLoading: boolean;
 }
 
+// A round is requested, then active until its deadline, then expired and computing until its result
+// is published. Only the first two can still become ready to accept ballots.
+const roundOpeningStatuses = ['Requested', 'Active'];
+
 const isRoundOpen = (round?: ICrispRoundState) =>
     round?.status === 'Active' && round.committee_public_key.length > 0;
 
+const hasRoundLeftOpening = (round?: ICrispRoundState) =>
+    round != null && !roundOpeningStatuses.includes(round.status);
+
 /**
  * Reads the state of a CRISP round. The committee publishes its key some way into the round, after
- * its key generation, so the round is polled until it accepts ballots.
+ * its key generation, so the round is polled until it accepts ballots, or until it left the stages
+ * in which it could.
  */
 export const useCrispRound = (
     params: IUseCrispRoundParams,
@@ -62,7 +70,10 @@ export const useCrispRound = (
         {
             enabled: enabled && hasRound,
             refetchInterval: (query) =>
-                isRoundOpen(query.state.data) ? false : roundStatePollInterval,
+                isRoundOpen(query.state.data) ||
+                hasRoundLeftOpening(query.state.data)
+                    ? false
+                    : roundStatePollInterval,
         },
     );
 

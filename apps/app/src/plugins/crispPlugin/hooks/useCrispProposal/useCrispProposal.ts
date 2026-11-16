@@ -1,5 +1,6 @@
 'use client';
 
+import { invariant } from '@aragon/gov-ui-kit';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import type { Hex } from 'viem';
@@ -103,26 +104,40 @@ export const useCrispProposal = <TProposal extends ICrispProposal | undefined>(
         [proposal, latestProposal, isProposalSettled],
     );
 
-    const { chainId } = useDaoChain({ network: proposal?.network });
+    const { chainId } = useDaoChain({ network: indexedProposal?.network });
     const isIndexedSettled =
         indexedProposal == null ||
         crispProposalUtils.isSettled(indexedProposal);
+
+    // The backend stores the round once it indexed the creation of the proposal, which the polled
+    // proposal can report after the given one was fetched
+    const e3Id = indexedProposal?.e3Id;
+    const hasRound = e3Id != null && e3Id !== '';
 
     const { data: unmarkedFailureReason } = useQuery({
         queryKey: [
             'crisp',
             'failure-condition',
-            proposal?.network,
-            proposal?.pluginAddress.toLowerCase(),
-            proposal?.e3Id,
+            indexedProposal?.network,
+            indexedProposal?.pluginAddress.toLowerCase(),
+            e3Id,
         ],
-        queryFn: () =>
-            crispRefundUtils.fetchFailureCondition({
-                chainId: chainId!,
-                pluginAddress: proposal!.pluginAddress as Hex,
-                e3Id: BigInt(proposal!.e3Id),
-            }),
-        enabled: !isIndexedSettled && chainId != null,
+        queryFn: () => {
+            invariant(
+                indexedProposal != null &&
+                    chainId != null &&
+                    e3Id != null &&
+                    e3Id !== '',
+                'useCrispProposal: the chain or the round of the proposal is not known.',
+            );
+
+            return crispRefundUtils.fetchFailureCondition({
+                chainId,
+                pluginAddress: indexedProposal.pluginAddress as Hex,
+                e3Id: BigInt(e3Id),
+            });
+        },
+        enabled: !isIndexedSettled && chainId != null && hasRound,
         refetchInterval: ({ state }) =>
             state.data != null ? false : crispProposalPollInterval,
     });

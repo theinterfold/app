@@ -10,9 +10,9 @@ export interface IUseCrispGovernanceSettingsParams
 export const useCrispGovernanceSettings = (
     params: IUseCrispGovernanceSettingsParams,
 ): IDefinitionSetting[] => {
-    const { settings } = params;
+    const { settings, isVeto } = params;
 
     const { t } = useTranslations();
 
-    return crispSettingsUtils.parseSettings({ settings, t });
+    return crispSettingsUtils.parseSettings({ settings, isVeto, t });
 };

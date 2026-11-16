@@ -7,6 +7,8 @@ import { setMetadataAbi } from '@/modules/governance/constants/setMetadataAbi';
 import type { IProposalCreate } from '@/modules/governance/dialogs/publishProposalDialog';
 import type { IBuildCreateProposalDataParams } from '@/modules/governance/types';
 import type { ICreateProposalEndDateForm } from '@/modules/governance/utils/createProposalUtils';
+import { settingsService } from '@/modules/settings/api/settingsService';
+import type { IGetUninstallHelpersParams } from '@/modules/settings/types';
 import type {
     ITokenSetupMembershipForm,
     ITokenSetupMembershipMember,
@@ -15,6 +17,7 @@ import { bigIntUtils } from '@/shared/utils/bigIntUtils';
 import { dateUtils } from '@/shared/utils/dateUtils';
 import { pluginTransactionUtils } from '@/shared/utils/pluginTransactionUtils';
 import type { ITransactionRequest } from '@/shared/utils/transactionUtils';
+import { versionComparatorUtils } from '@/shared/utils/versionComparatorUtils';
 import type { ICrispSetupGovernanceForm } from '../../components/crispSetupGovernance';
 import { crispE3Config } from '../../constants/crispE3Config';
 import { crispPlugin } from '../../constants/crispPlugin';
@@ -130,6 +133,38 @@ class CrispTransactionUtils {
             );
 
         return transactionData;
+    };
+
+    // The helpers must match the ones the installation prepared. The setup returned none up to build 1,
+    // and the proposal-creation condition from build 2. The condition is referenced by no permission,
+    // so the backend cannot derive it from the plugin and it is read from the installation data.
+    getUninstallHelpers = async (
+        params: IGetUninstallHelpersParams,
+    ): Promise<Hex[]> => {
+        const { plugin, dao } = params;
+
+        const firstBuildWithHelpers = { release: 1, build: 2 };
+        if (versionComparatorUtils.isLessThan(plugin, firstBuildWithHelpers)) {
+            return [];
+        }
+
+        // The backend answers with no content when it has not indexed the installation, which the
+        // service types as data
+        const installationData =
+            await settingsService.getPluginInstallationData({
+                queryParams: {
+                    pluginAddress: plugin.address,
+                    network: dao.network,
+                },
+            });
+
+        if (installationData == null) {
+            throw new Error(
+                `CrispTransactionUtils: no installation data found for the plugin ${plugin.address}, its uninstall helpers cannot be resolved.`,
+            );
+        }
+
+        return installationData.preparedSetupData.helpers as Hex[];
     };
 
     private buildInstallDataVotingSettings = (

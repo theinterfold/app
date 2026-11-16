@@ -1,5 +1,6 @@
 'use client';
 
+import { invariant } from '@aragon/gov-ui-kit';
 import { useQuery } from '@tanstack/react-query';
 import type { Hex } from 'viem';
 import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
@@ -33,14 +34,24 @@ export const useCrispRefund = (params: IUseCrispRefundParams) => {
             pluginAddress.toLowerCase(),
             proposalIndex,
         ],
-        queryFn: () =>
-            crispRefundUtils.fetchRefundState({
-                chainId: chainId!,
+        queryFn: () => {
+            invariant(
+                chainId != null && e3Id != null && e3Id !== '',
+                'useCrispRefund: the chain or the round of the proposal is not known.',
+            );
+
+            return crispRefundUtils.fetchRefundState({
+                chainId,
                 pluginAddress: pluginAddress as Hex,
                 proposalId: BigInt(proposalIndex),
                 e3Id: BigInt(e3Id),
-            }),
-        enabled: failureReason != null && chainId != null,
+            });
+        },
+        enabled:
+            failureReason != null &&
+            chainId != null &&
+            e3Id != null &&
+            e3Id !== '',
     });
 
     return {

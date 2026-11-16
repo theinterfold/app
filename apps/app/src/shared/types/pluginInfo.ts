@@ -11,6 +11,12 @@ export interface IPluginInfo extends IPlugin {
      */
     installVersion: IContractVersionInfo;
     /**
+     * Defines if the setup of the plugin can update an installed plugin to a newer build. Set to
+     * `false` for a plugin whose setup has no update path, so the DAOs running an older build are not
+     * offered an update that cannot be prepared. Defaults to `true`.
+     */
+    isUpdatable?: boolean;
+    /**
      * Repository address of the plugin for each supported network.
      */
     repositoryAddresses: Record<Network, Hex>;
