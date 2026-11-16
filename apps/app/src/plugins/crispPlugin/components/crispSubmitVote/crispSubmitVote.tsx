@@ -132,7 +132,7 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
         <div className="flex flex-col gap-4">
             {showOptions ? (
                 <>
-                    <Card className="border border-neutral-100 p-6 shadow-neutral-sm">
+                    <Card className="shadow-neutral-sm border border-neutral-100 p-6">
                         <TokenVotingOptions
                             isVeto={isVeto}
                             onChange={setSelectedOption}
@@ -204,7 +204,7 @@ export const CrispSubmitVote: React.FC<ICrispSubmitVoteProps> = (props) => {
                 </div>
             )}
             {canMask && !showOptions && (
-                <p className="font-normal text-neutral-500 text-sm leading-normal">
+                <p className="text-sm leading-normal font-normal text-neutral-500">
                     {t('app.plugins.crisp.crispSubmitVote.maskNote')}
                 </p>
             )}

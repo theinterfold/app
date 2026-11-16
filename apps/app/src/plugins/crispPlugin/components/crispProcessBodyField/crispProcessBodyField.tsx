@@ -92,7 +92,7 @@ export const CrispProcessBodyField = (props: ICrispProcessBodyFieldProps) => {
             ? `${formatterUtils.formatNumber(
                   formatUnits(parsedTotalSupply, tokenDecimals),
                   { format: NumberFormat.TOKEN_AMOUNT_LONG },
-              )} ($${tokenSymbol})`
+              )} (${tokenSymbol})`
             : '-';
 
     const proposalDurationObject = dateUtils.secondsToDuration(minDuration);
@@ -148,7 +148,7 @@ export const CrispProcessBodyField = (props: ICrispProcessBodyFieldProps) => {
                 term={t('app.plugins.crisp.crispProcessBodyField.tokenTerm')}
                 {...(isExisting ? tokenProps : {})}
             >
-                {tokenName} (${tokenSymbol})
+                {tokenName} ({tokenSymbol})
             </DefinitionList.Item>
             {(numberOfMembers ?? 0) > 0 && (
                 <DefinitionList.Item

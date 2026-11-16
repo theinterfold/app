@@ -55,7 +55,7 @@ export const CrispProposalCreationSettings: React.FC<
                 disabled={true}
                 label={name}
             />
-            <p className="text-neutral-500 text-sm">
+            <p className="text-sm text-neutral-500">
                 {t(
                     'app.plugins.crisp.crispProposalCreationSettings.notSupported',
                 )}

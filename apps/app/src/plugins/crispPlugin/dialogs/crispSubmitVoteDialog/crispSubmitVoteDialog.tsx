@@ -266,7 +266,7 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
                 )}
             />
             <Dialog.Content className="flex flex-col gap-4 pb-4 md:pb-6">
-                <p className="font-normal text-base text-neutral-500 leading-normal">
+                <p className="text-base leading-normal font-normal text-neutral-500">
                     {t(
                         isMask
                             ? `app.plugins.crisp.crispSubmitVoteDialog.mask.description.${maskTarget === CrispMaskTarget.SELF ? 'self' : 'random'}`

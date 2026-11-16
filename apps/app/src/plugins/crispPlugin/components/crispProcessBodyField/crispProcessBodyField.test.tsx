@@ -94,7 +94,7 @@ describe('<CrispProcessBodyField /> component', () => {
         render(createTestComponent());
 
         expect(screen.getByText(/supplyTerm/)).toBeInTheDocument();
-        expect(screen.getByText(/1,000.*\(\$TKN\)/)).toBeInTheDocument();
+        expect(screen.getByText(/1,000.*\(TKN\)/)).toBeInTheDocument();
     });
 
     it('renders the token supply of an installed body from the plugin settings token', () => {
@@ -106,7 +106,7 @@ describe('<CrispProcessBodyField /> component', () => {
         };
         render(createTestComponent({ body }));
 
-        expect(screen.getByText(/1,000.*\(\$TKN\)/)).toBeInTheDocument();
+        expect(screen.getByText(/1,000.*\(TKN\)/)).toBeInTheDocument();
     });
 
     it.each([
@@ -117,9 +117,7 @@ describe('<CrispProcessBodyField /> component', () => {
         ({ totalSupply }) => {
             render(createTestComponent({ body: generateBody(totalSupply) }));
 
-            expect(
-                screen.queryByText(/^\d.*\(\$TKN\)$/),
-            ).not.toBeInTheDocument();
+            expect(screen.queryByText(/^\d.*\(TKN\)$/)).not.toBeInTheDocument();
             expect(screen.getByText('-')).toBeInTheDocument();
         },
     );

@@ -35,7 +35,7 @@ export const CrispProposalVotingSummary: React.FC<
     const { proposal } = useCrispProposal({ proposal: proposalEnvelope });
 
     const renderStatus = (statusKey: string, statusClass: string) => (
-        <p className="font-normal text-base text-neutral-800 leading-tight md:text-lg">
+        <p className="text-base leading-tight font-normal text-neutral-800 md:text-lg">
             {name}{' '}
             <span className={statusClass}>
                 {t(`app.plugins.crisp.crispProposalVotingSummary.${statusKey}`)}
@@ -45,7 +45,7 @@ export const CrispProposalVotingSummary: React.FC<
 
     if (!proposal) {
         return (
-            <p className="font-normal text-base text-neutral-800 leading-tight md:text-lg">
+            <p className="text-base leading-tight font-normal text-neutral-800 md:text-lg">
                 {name}
             </p>
         );
