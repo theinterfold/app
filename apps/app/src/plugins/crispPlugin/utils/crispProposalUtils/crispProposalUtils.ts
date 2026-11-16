@@ -178,9 +178,10 @@ class CrispProposalUtils {
     // The deadline of the step a closed round is in, in milliseconds: the round fails if the
     // step has not finished by then. Undefined while the window is open, and when the backend
     // has not read it.
-    getRoundPhaseDeadline = (proposal: ICrispProposal): number | undefined => {
-        const phase = this.getRoundPhase(proposal);
-
+    getRoundPhaseDeadline = (
+        proposal: ICrispProposal,
+        phase: CrispRoundPhase,
+    ): number | undefined => {
         if (
             phase === 'scheduled' ||
             phase === 'voting' ||

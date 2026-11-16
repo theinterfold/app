@@ -219,7 +219,7 @@ class CrispRefundUtils {
     // When anyone may mark the round failed, in milliseconds: the coordinator reserves the grace
     // period after the missed deadline to the requester, its owner and the committee. Undefined
     // when the backend has not read the deadline, the call is then left to the coordinator.
-    getMarkFailedStart = (
+    private getMarkFailedStart = (
         proposal: ICrispProposal,
         state: ICrispRefundState,
     ): number | undefined =>

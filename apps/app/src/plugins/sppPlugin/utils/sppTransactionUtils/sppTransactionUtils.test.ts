@@ -250,11 +250,11 @@ describe('sppTransaction utils', () => {
                 }),
             }) as unknown as Viem.Log;
 
-        it('returns the bodies the process emitted SubProposalNotCreated for, ignoring other contracts', () => {
+        it('returns true when the process emitted SubProposalNotCreated, ignoring other contracts', () => {
             const receipt = {
                 logs: [
-                    buildSkippedLog(spp, body),
                     buildSkippedLog(otherSpp, otherBody),
+                    buildSkippedLog(spp, body),
                     { address: spp, data: '0x', topics: [zeroHash] },
                 ],
             } as unknown as Viem.TransactionReceipt;
@@ -262,7 +262,18 @@ describe('sppTransaction utils', () => {
 
             expect(
                 sppTransactionUtils.getSkippedBodies({ plugin, receipt }),
-            ).toEqual([body]);
+            ).toBe(true);
+        });
+
+        it('returns false when only other contracts emitted SubProposalNotCreated', () => {
+            const receipt = {
+                logs: [buildSkippedLog(otherSpp, otherBody)],
+            } as unknown as Viem.TransactionReceipt;
+            const plugin = generateDaoPlugin({ address: spp.toLowerCase() });
+
+            expect(
+                sppTransactionUtils.getSkippedBodies({ plugin, receipt }),
+            ).toBe(false);
         });
     });
 

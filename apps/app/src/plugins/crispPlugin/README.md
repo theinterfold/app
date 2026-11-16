@@ -71,8 +71,8 @@ summary too.
 
 A round fails when the coordinator marks it `Failed`, which the backend indexes as `E3Failed`. The
 proposal then gets the terminal `ProposalStatus.FAILED` and never publishes a tally. A round whose
-deadline passed without being marked shows as failed too: the backend asks the coordinator
-(`checkFailureCondition`) and stores the reason it would be marked with. The fee is
+deadline passed without being marked shows as failed on the proposal page: the app asks the
+coordinator (`checkFailureCondition`) and takes the reason it would be marked with. The fee is
 returned in up to three permissionless transactions: `markE3Failed`, `processE3Failure` (both on
 the coordinator) and `claimRefund(proposalId)` (plugin), which credits the payer recorded at
 creation. For `markFailedGracePeriod` seconds after the missed deadline, `markE3Failed` is reserved
@@ -114,7 +114,7 @@ credit, which the fee card of the creation wizard offers as well.
 ## Ballot submission
 
 CRISP options are positional (`0 = yes, 1 = no, 2 = abstain`), always three, while the app works in
-`VoteOption`. `utils/crispVoteUtils` converts both ways.
+`VoteOption`. `utils/crispVoteUtils` converts a `VoteOption` into the positional ballot.
 
 `useCrispSubmitVote` runs four steps:
 
@@ -163,7 +163,7 @@ attestation signature, the layout `publishInput` decodes), so it is decoded with
 that already reports a transaction hash is never sent again.
 
 A ballot is reported as submitted only once the chain shows it: the receipt of the wallet
-transaction, or of the `tx_hash` the server reports on the relay path (`confirmRelayedCommitment`),
+transaction, or of the `tx_hash` the server reports on the relay path (`confirmCommitment`),
 must be a success that holds an event of `CRISPProgram` for this round, the slot and the ciphertext
 commitment of the voter's own proof: `InputCommitted`, or `InputPublished`, which `finalizeInput`
 only emits for an input committed with the same identity. The server reports the publication

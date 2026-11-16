@@ -81,7 +81,6 @@ describe('crispBallot utils', () => {
                 network,
                 view,
                 isCancelled: () => false,
-                onView: jest.fn(),
                 ...overrides,
             });
 
@@ -162,17 +161,20 @@ describe('crispBallot utils', () => {
             );
         });
 
-        it('treats success and pending availability without a hash as committed', async () => {
-            const committed = { action: 'committed', transactionHash: null };
+        it('errors on success and pending availability without a hash, as there is nothing to confirm', async () => {
+            const unconfirmed = expect.objectContaining({
+                errorKey:
+                    'app.plugins.crisp.crispSubmitVoteDialog.error.commitmentUnconfirmed',
+            });
 
             await expect(
                 follow(generateVoteResponse({ status: 'success' })),
-            ).resolves.toEqual(committed);
+            ).rejects.toThrow(unconfirmed);
             await expect(
                 follow(
                     generateVoteResponse({ status: 'pending_availability' }),
                 ),
-            ).resolves.toEqual(committed);
+            ).rejects.toThrow(unconfirmed);
         });
 
         it('errors on a pending commitment without a job id', async () => {
@@ -187,7 +189,6 @@ describe('crispBallot utils', () => {
         });
 
         it('reads the job until the server chooses who sends the commitment', async () => {
-            const onView = jest.fn();
             const decided = generateVoteResponse({
                 status: 'ready_for_commitment',
                 encoded_proof: '0x1234',
@@ -205,7 +206,6 @@ describe('crispBallot utils', () => {
                     job_id: 'job-1',
                 }),
                 isCancelled: () => false,
-                onView,
             });
             await jest.advanceTimersByTimeAsync(5000);
 
@@ -217,7 +217,6 @@ describe('crispBallot utils', () => {
                 network,
                 jobId: 'job-1',
             });
-            expect(onView).toHaveBeenCalledWith(decided);
         });
 
         it('errors when the server does not know the job', async () => {
@@ -536,7 +535,7 @@ describe('crispBallot utils', () => {
         });
     });
 
-    describe('confirmRelayedCommitment', () => {
+    describe('confirmCommitment', () => {
         const waitForReceiptSpy = jest.spyOn(
             wagmiActions,
             'waitForTransactionReceipt',
@@ -557,7 +556,7 @@ describe('crispBallot utils', () => {
             );
 
             await expect(
-                crispBallotUtils.confirmRelayedCommitment(params),
+                crispBallotUtils.confirmCommitment(params),
             ).resolves.toBeUndefined();
 
             expect(waitForReceiptSpy.mock.calls[0][1]).toEqual(
@@ -572,7 +571,7 @@ describe('crispBallot utils', () => {
             waitForReceiptSpy.mockRejectedValue(new Error('timeout'));
 
             await expect(
-                crispBallotUtils.confirmRelayedCommitment(params),
+                crispBallotUtils.confirmCommitment(params),
             ).rejects.toThrow(
                 expect.objectContaining({
                     errorKey:

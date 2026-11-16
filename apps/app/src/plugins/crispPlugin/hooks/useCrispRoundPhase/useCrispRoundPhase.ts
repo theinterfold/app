@@ -1,16 +1,9 @@
 import { DateFormat, formatterUtils } from '@aragon/gov-ui-kit';
 import { useTranslations } from '@/shared/components/translationsProvider';
 import type { ICrispProposal } from '../../types';
-import {
-    type CrispRoundPhase,
-    crispProposalUtils,
-} from '../../utils/crispProposalUtils';
+import { crispProposalUtils } from '../../utils/crispProposalUtils';
 
 export interface IUseCrispRoundPhaseResult {
-    /**
-     * Step the round of the proposal is in.
-     */
-    phase: CrispRoundPhase;
     /**
      * Title of the step.
      */
@@ -31,7 +24,7 @@ export const useCrispRoundPhase = (
     const { t } = useTranslations();
 
     const phase = crispProposalUtils.getRoundPhase(proposal);
-    const deadline = crispProposalUtils.getRoundPhaseDeadline(proposal);
+    const deadline = crispProposalUtils.getRoundPhaseDeadline(proposal, phase);
     const isDeadlinePassed = deadline != null && deadline <= Date.now();
 
     const description = t(
@@ -50,7 +43,6 @@ export const useCrispRoundPhase = (
               );
 
     return {
-        phase,
         heading: t(
             `app.plugins.crisp.useCrispRoundPhase.phase.${phase}.heading`,
         ),

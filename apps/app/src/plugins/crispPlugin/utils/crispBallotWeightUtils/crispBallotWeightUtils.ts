@@ -14,10 +14,6 @@ export interface ICrispBallotWeight {
      */
     available: bigint;
     /**
-     * Defines if the weight was chosen at random below the voting power.
-     */
-    randomize: boolean;
-    /**
      * Weight the ballot counts, in ballot units.
      */
     counted: bigint;
@@ -40,7 +36,7 @@ class CrispBallotWeightUtils {
      * Uniform cryptographic sampling in `[0, limit)`, redrawing instead of using a modulo to avoid
      * bias.
      */
-    private randomBelow = (limit: bigint): bigint => {
+    randomBelow = (limit: bigint): bigint => {
         if (limit === BigInt(1)) {
             return BigInt(0);
         }
@@ -88,7 +84,7 @@ class CrispBallotWeightUtils {
      * choosing it again.
      *
      * @returns The weight to count.
-     * @throws When the review was made for another round, voter or voting power, or is out of band.
+     * @throws When the review was made for another round, voter or voting power.
      */
     assertReviewed = (
         weight: ICrispBallotWeight | undefined,
@@ -105,20 +101,7 @@ class CrispBallotWeightUtils {
             );
         }
 
-        const { counted, available, randomize } = weight;
-        const isWithinBand =
-            randomize && available >= minRandomizablePower
-                ? counted < available &&
-                  counted * minRandomizablePower >= available * BigInt(99)
-                : counted === available;
-
-        if (counted <= BigInt(0) || !isWithinBand) {
-            throw new CrispError(
-                'app.plugins.crisp.crispSubmitVoteDialog.error.reviewInvalid',
-            );
-        }
-
-        return counted;
+        return weight.counted;
     };
 
     /**

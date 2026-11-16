@@ -162,7 +162,7 @@ describe('SppStageUtils', () => {
         });
     });
 
-    describe('isAwaitingLateResult', () => {
+    describe('isOnlyAwaitingLateResult', () => {
         const startDate = DateTime.fromISO('2022-02-10T08:00:00.000Z');
         const bodyAddress = '0x0000000000000000000000000000000000000001';
         const stage = generateSppStage({
@@ -195,7 +195,7 @@ describe('SppStageUtils', () => {
             mockLateReportingBody();
 
             expect(
-                sppStageUtils.isAwaitingLateResult(
+                sppStageUtils.isOnlyAwaitingLateResult(
                     buildProposal(startDate.toSeconds() + 3600),
                     stage,
                 ),
@@ -207,7 +207,7 @@ describe('SppStageUtils', () => {
             mockLateReportingBody();
 
             expect(
-                sppStageUtils.isAwaitingLateResult(
+                sppStageUtils.isOnlyAwaitingLateResult(
                     buildProposal(startDate.toSeconds() + 6000),
                     stage,
                 ),
@@ -218,7 +218,7 @@ describe('SppStageUtils', () => {
             timeUtils.setTime('2022-02-10T09:50:00.000Z');
 
             expect(
-                sppStageUtils.isAwaitingLateResult(
+                sppStageUtils.isOnlyAwaitingLateResult(
                     buildProposal(startDate.toSeconds() + 3600),
                     stage,
                 ),
@@ -234,7 +234,10 @@ describe('SppStageUtils', () => {
             });
 
             expect(
-                sppStageUtils.isAwaitingLateResult(directBodyProposal, stage),
+                sppStageUtils.isOnlyAwaitingLateResult(
+                    directBodyProposal,
+                    stage,
+                ),
             ).toBe(false);
         });
     });

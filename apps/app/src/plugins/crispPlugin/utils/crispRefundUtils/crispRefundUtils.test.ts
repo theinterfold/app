@@ -170,27 +170,6 @@ describe('crispRefund utils', () => {
         });
     });
 
-    describe('getMarkFailedStart', () => {
-        it('opens the call to anyone once the grace period after the missed deadline ends', () => {
-            const proposal = generateCrispProposal({
-                e3StageDeadline: 1_793_917_932,
-            });
-
-            expect(
-                crispRefundUtils.getMarkFailedStart(proposal, buildState()),
-            ).toEqual((1_793_917_932 + 3600) * 1000);
-        });
-
-        it('is unknown while the backend has not read the deadline', () => {
-            expect(
-                crispRefundUtils.getMarkFailedStart(
-                    generateCrispProposal(),
-                    buildState(),
-                ),
-            ).toBeUndefined();
-        });
-    });
-
     describe('getRefundWait', () => {
         const deadline = 1_793_917_932;
         const proposal = generateCrispProposal({ e3StageDeadline: deadline });
@@ -209,6 +188,17 @@ describe('crispRefund utils', () => {
                 reason: 'graceRunning',
                 until: (deadline + 3600) * 1000,
             });
+        });
+
+        it('leaves the call to the coordinator while the backend has not read the deadline', () => {
+            expect(
+                crispRefundUtils.getRefundWait(
+                    generateCrispProposal(),
+                    buildState({ stage: CrispE3Stage.KEY_PUBLISHED }),
+                    'markFailed',
+                    deadline * 1000,
+                ),
+            ).toBeUndefined();
         });
 
         it('lets the round be marked failed once the grace period ended', () => {

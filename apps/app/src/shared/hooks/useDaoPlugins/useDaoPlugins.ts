@@ -25,6 +25,10 @@ export interface IUseDaoPluginsParams {
      */
     pluginAddress?: string;
     /**
+     * Only returns the bodies of the process with the specified address when set.
+     */
+    parentPlugin?: string;
+    /**
      * Include sub-plugins in the result.
      */
     includeSubPlugins?: boolean;
@@ -158,6 +162,7 @@ export const useDaoPlugins = (
         daoId,
         type,
         pluginAddress,
+        parentPlugin,
         includeSubPlugins,
         includeLinkedAccounts,
         includeGroupFilter,
@@ -176,6 +181,7 @@ export const useDaoPlugins = (
     const allPlugins = daoUtils.getDaoPlugins(dao, {
         type,
         pluginAddress,
+        parentPlugin,
         includeSubPlugins,
         includeLinkedAccounts,
         interfaceType,

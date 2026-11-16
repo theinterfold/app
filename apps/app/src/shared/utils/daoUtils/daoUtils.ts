@@ -34,6 +34,11 @@ export interface IGetDaoPluginsParams {
      */
     pluginAddress?: string;
     /**
+     * Only returns the bodies of the process with the specified address when set, as linked from
+     * either end (see `findPluginProcess`). The process itself is not returned.
+     */
+    parentPlugin?: string;
+    /**
      * Include sub-plugins in the result.
      * @default false
      */
@@ -230,6 +235,7 @@ class DaoUtils {
         const {
             type,
             pluginAddress,
+            parentPlugin,
             includeSubPlugins = false,
             includeLinkedAccounts = false,
             interfaceType,
@@ -238,9 +244,17 @@ class DaoUtils {
             includeUnsupported = false,
         } = params ?? {};
 
+        const process =
+            parentPlugin != null
+                ? dao?.plugins?.find((plugin) =>
+                      this.isSameAddress(plugin.address, parentPlugin),
+                  )
+                : undefined;
+
         return dao?.plugins?.filter(
             (plugin) =>
                 this.filterPluginByAddress(plugin, pluginAddress) &&
+                this.filterByParentPlugin(plugin, parentPlugin, process) &&
                 this.filterPluginByType(plugin, type) &&
                 this.filterBySubPlugin(plugin, includeSubPlugins) &&
                 this.filterByLinkedAccounts(
@@ -451,6 +465,16 @@ class DaoUtils {
     private filterPluginByAddress = (plugin: IDaoPlugin, address?: string) =>
         address == null ||
         plugin.address.toLowerCase() === address.toLowerCase();
+
+    private filterByParentPlugin = (
+        plugin: IDaoPlugin,
+        parentPlugin?: string,
+        process?: IDaoPlugin,
+    ) =>
+        parentPlugin == null ||
+        (process != null &&
+            !this.isSameAddress(plugin.address, parentPlugin) &&
+            this.findPluginProcess(plugin, [process]) != null);
 
     private filterPluginByType = (plugin: IDaoPlugin, type?: PluginType) =>
         type == null ||

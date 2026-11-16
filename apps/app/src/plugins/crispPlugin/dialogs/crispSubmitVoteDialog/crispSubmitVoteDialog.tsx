@@ -113,7 +113,6 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
         roundError,
         hasActiveSlot,
         isVoteUpdate,
-        isMask,
         isWalletSubmission,
         countedShare,
         isLoading,
@@ -137,6 +136,7 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
     // The sender of a mask for a random member would not be its slot, which tells it from a vote,
     // so it is only ever relayed and the voter has no choice to make.
     const canChooseMethod = maskTarget !== CrispMaskTarget.RANDOM;
+    const isMask = maskTarget != null;
 
     let randomizeHelpText = t(
         'app.plugins.crisp.crispSubmitVoteDialog.randomize.helpTextOff',
@@ -362,15 +362,9 @@ export const CrispSubmitVoteDialog: React.FC<ICrispSubmitVoteDialogProps> = (
                             variant="info"
                         />
                     )}
-                {state === 'error' && (
+                {state === 'error' && error != null && (
                     <AlertInline
-                        message={
-                            error != null
-                                ? describeError(error)
-                                : t(
-                                      'app.plugins.crisp.crispSubmitVoteDialog.alert.error',
-                                  )
-                        }
+                        message={describeError(error)}
                         variant="critical"
                     />
                 )}

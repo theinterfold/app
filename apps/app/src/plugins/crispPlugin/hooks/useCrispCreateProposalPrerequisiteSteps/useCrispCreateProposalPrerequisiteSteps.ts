@@ -15,9 +15,7 @@ import type { ICreateCrispProposalFormData } from '../../utils/crispTransactionU
 import { useCrispFeeCredits } from '../useCrispFeeCredits';
 import { useCrispStageDurations } from '../useCrispStageDurations';
 
-enum CrispCreateProposalStep {
-    DEPOSIT_FEE = 'DEPOSIT_FEE',
-}
+const depositFeeStepId = 'DEPOSIT_FEE';
 
 /**
  * Contributes a step to the publish dialog to top up the fee credit of the creator, as
@@ -124,11 +122,11 @@ export const useCrispCreateProposalPrerequisiteSteps = (
             return [];
         }
 
-        const stepKey = `app.plugins.crisp.crispCreateProposalPrerequisiteSteps.step.${CrispCreateProposalStep.DEPOSIT_FEE}`;
+        const stepKey = `app.plugins.crisp.crispCreateProposalPrerequisiteSteps.step.${depositFeeStepId}`;
 
         return [
             {
-                id: `${CrispCreateProposalStep.DEPOSIT_FEE}:${pluginAddress}`,
+                id: `${depositFeeStepId}:${pluginAddress}`,
                 order: 0,
                 meta: {
                     label:

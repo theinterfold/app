@@ -60,9 +60,7 @@ class PrepareProcessDialogUtils {
             return { pluginsMetadata: [processorMetadata] };
         }
 
-        const newStageBodies = values.stages
-            .flatMap((stage) => stage.bodies)
-            .filter((body) => body.type === BodyType.NEW);
+        const newStageBodies = this.getNewStageBodies(values);
         const pluginsMetadata = newStageBodies.map((body) =>
             prepareProcessDialogUtils.preparePluginMetadata(body),
         );

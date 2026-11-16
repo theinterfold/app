@@ -29,11 +29,11 @@ describe('crispMask utils', () => {
     const readE3RecordSpy = jest.spyOn(crispRoundUtils, 'readE3Record');
     const readSlotPowerSpy = jest.spyOn(crispRoundUtils, 'readSlotVotingPower');
 
-    // Hands out the given 32-bit draws in order.
+    // Hands out the given byte draws in order, for lengths that fit in one byte.
     const mockDraws = (...draws: number[]) => {
         const queue = [...draws];
 
-        getRandomValuesSpy.mockImplementation(((buffer: Uint32Array) => {
+        getRandomValuesSpy.mockImplementation(((buffer: Uint8Array) => {
             buffer[0] = queue.shift() as number;
 
             return buffer;
@@ -48,22 +48,23 @@ describe('crispMask utils', () => {
     });
 
     describe('drawIndex', () => {
-        it('maps a draw onto the range by modulo', () => {
-            mockDraws(7);
-
-            expect(crispMaskUtils.drawIndex(3)).toEqual(1);
-        });
-
-        it('redraws a value in the uneven tail of the 32-bit range instead of favouring low indices', () => {
-            // 2^32 mod 3 is 1, so the last value 2^32 - 1 would give index 0 one extra chance.
-            mockDraws(2 ** 32 - 1, 5);
+        it('maps a draw within the range onto its index', () => {
+            mockDraws(2);
 
             expect(crispMaskUtils.drawIndex(3)).toEqual(2);
+        });
+
+        it('redraws a value outside the range instead of folding it onto low indices', () => {
+            // A length of 3 draws two bits, so 3 is the one value out of range that would give
+            // index 0 an extra chance if it were folded back with a modulo.
+            mockDraws(3, 1);
+
+            expect(crispMaskUtils.drawIndex(3)).toEqual(1);
             expect(getRandomValuesSpy).toHaveBeenCalledTimes(2);
         });
 
-        it('never redraws for a length that divides the range', () => {
-            mockDraws(2 ** 32 - 1);
+        it('never redraws for a length that is a power of two', () => {
+            mockDraws(3);
 
             expect(crispMaskUtils.drawIndex(4)).toEqual(3);
             expect(getRandomValuesSpy).toHaveBeenCalledTimes(1);

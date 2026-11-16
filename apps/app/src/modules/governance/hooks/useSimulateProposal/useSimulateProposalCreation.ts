@@ -96,21 +96,22 @@ export const useSimulateProposalCreation = (
 
     // Only ExecutionRevertedError is treated as a simulation failure. All other
     // errors represent failed simulation request, e.g., RPC not available.
-    const revertError =
-        isError && error instanceof BaseError
-            ? error.walk((e) => e instanceof ExecutionRevertedError)
-            : undefined;
+    const baseError = isError && error instanceof BaseError ? error : undefined;
+    const revertError = baseError?.walk(
+        (e) => e instanceof ExecutionRevertedError,
+    );
     const isRequestError = isError && revertError == null;
 
     // The simulation does not run the prerequisite steps (e.g. a fee deposit) of the process and its bodies, so a
     // revert they resolve does not make the user ineligible.
     const isPrerequisiteRevert =
+        baseError != null &&
         revertError != null &&
         pluginRegistryUtils
             .getSlotFunctions<Hex, boolean>(
                 GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_PREREQUISITE_REVERT,
             )
-            .some((isResolved) => isResolved(getRevertData(error)));
+            .some((isResolved) => isResolved(getRevertData(baseError)));
 
     const isSimulationError =
         isError && revertError != null && !isPrerequisiteRevert;
@@ -125,11 +126,8 @@ export const useSimulateProposalCreation = (
 };
 
 // Raw revert data sits on the innermost error of the call, as an object on some RPC errors
-const getRevertData = (error: unknown): Hex => {
-    const { data } =
-        error instanceof BaseError
-            ? (error.walk() as { data?: Hex | { data?: Hex } })
-            : {};
+const getRevertData = (error: BaseError): Hex => {
+    const { data } = error.walk() as { data?: Hex | { data?: Hex } };
 
     return (typeof data === 'object' ? data.data : data) ?? '0x';
 };

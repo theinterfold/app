@@ -3,39 +3,6 @@ import type { ICreateCrispProposalFormData } from '../crispTransactionUtils';
 import { crispFeeUtils } from './crispFeeUtils';
 
 describe('crispFeeUtils', () => {
-    describe('shortfall', () => {
-        it('returns the difference when the credit does not cover the quote', () => {
-            expect(crispFeeUtils.shortfall(BigInt(100), BigInt(40))).toEqual(
-                BigInt(60),
-            );
-        });
-
-        it('returns zero when the credit exactly covers the quote', () => {
-            expect(crispFeeUtils.shortfall(BigInt(100), BigInt(100))).toEqual(
-                BigInt(0),
-            );
-        });
-
-        it('returns zero instead of a negative amount when the creator is in surplus', () => {
-            expect(crispFeeUtils.shortfall(BigInt(100), BigInt(250))).toEqual(
-                BigInt(0),
-            );
-        });
-
-        it.each([
-            { quote: undefined, credit: BigInt(40) },
-            { quote: BigInt(100), credit: undefined },
-            { quote: undefined, credit: undefined },
-        ])(
-            'returns zero while a read is unknown ($quote, $credit)',
-            ({ quote, credit }) => {
-                expect(crispFeeUtils.shortfall(quote, credit)).toEqual(
-                    BigInt(0),
-                );
-            },
-        );
-    });
-
     describe('depositAmount', () => {
         it('adds the buffer on top of the shortfall', () => {
             // 60 short, +10% = 66
@@ -47,6 +14,12 @@ describe('crispFeeUtils', () => {
         it('stays zero when there is nothing to top up, rather than depositing the buffer alone', () => {
             expect(
                 crispFeeUtils.depositAmount(BigInt(100), BigInt(100)),
+            ).toEqual(BigInt(0));
+        });
+
+        it('stays zero instead of going negative when the creator is in surplus', () => {
+            expect(
+                crispFeeUtils.depositAmount(BigInt(100), BigInt(250)),
             ).toEqual(BigInt(0));
         });
 

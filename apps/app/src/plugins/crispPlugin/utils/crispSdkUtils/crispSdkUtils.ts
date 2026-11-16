@@ -1,16 +1,17 @@
+import type * as CrispSdk from '@crisp-e3/sdk';
 import type {
     CircuitBundle,
     CircuitPreset,
     InputIdentity,
     PreparedBallot,
+    ProofData,
     SlotHead,
 } from '@crisp-e3/sdk';
 import {
+    bytesToHex,
     decodeAbiParameters,
     type Hex,
-    hexToBytes,
     parseAbiParameters,
-    size,
 } from 'viem';
 import type { Network } from '@/shared/api/daoService';
 import { networkDefinitions } from '@/shared/constants/networkDefinitions';
@@ -141,7 +142,7 @@ class CrispSdkUtils {
     /**
      * Decodes the ABI-encoded BFV parameters a round runs under.
      */
-    decodeBfvParams = (encodedParams: Hex): ICrispBfvParams => {
+    private decodeBfvParams = (encodedParams: Hex): ICrispBfvParams => {
         const [{ degree, plaintextModulus, moduli }] = decodeAbiParameters(
             bfvParametersAbi,
             encodedParams,
@@ -170,10 +171,7 @@ class CrispSdkUtils {
             );
         }
 
-        if (
-            size(committeeKeyCommitment) !== 32 ||
-            BigInt(committeeKeyCommitment) === BigInt(0)
-        ) {
+        if (BigInt(committeeKeyCommitment) === BigInt(0)) {
             throw new CrispError(
                 'app.plugins.crisp.crispSubmitVoteDialog.error.committeeKeyNotCommitted',
             );
@@ -246,14 +244,10 @@ class CrispSdkUtils {
             );
         }
 
-        const expectedCommitment = hexToBytes(committeeKeyCommitment);
-        const matches =
-            actualCommitment.length === expectedCommitment.length &&
-            actualCommitment.every(
-                (byte, index) => byte === expectedCommitment[index],
-            );
-
-        if (!matches) {
+        if (
+            bytesToHex(actualCommitment) !==
+            committeeKeyCommitment.toLowerCase()
+        ) {
             throw new CrispError(
                 'app.plugins.crisp.crispSubmitVoteDialog.error.committeeKeyMismatch',
             );
@@ -266,7 +260,7 @@ class CrispSdkUtils {
      * Installs the circuits a round needs, at most once per session. The SDK keeps a single set of
      * circuits, so a round needing another preset than the loaded one is refused.
      */
-    ensureCircuits = async (preset: CircuitPreset): Promise<void> => {
+    private ensureCircuits = async (preset: CircuitPreset): Promise<void> => {
         const { registeredPreset, setCircuits } = await import('@crisp-e3/sdk');
 
         const active = registeredPreset();
@@ -375,30 +369,22 @@ class CrispSdkUtils {
      * Second phase of a ballot: proves it given the signature over its digest, returning the
      * Solidity-encoded envelope the CRISP server stages.
      */
-    finishBallot = async (params: IFinishBallotParams): Promise<Hex> => {
+    finishBallot = (params: IFinishBallotParams): Promise<Hex> => {
         const { prepared, digest, signature } = params;
-        const { encodeSolidityProof, finishBallotProof } = await import(
-            '@crisp-e3/sdk'
+
+        return this.finishProof((sdk) =>
+            sdk.finishBallotProof(prepared, digest, signature),
         );
-
-        const proof = await finishBallotProof(prepared, digest, signature);
-
-        return encodeSolidityProof(proof);
     };
 
     /**
      * Second phase of a mask: proves it against the same digest a vote carries, with no
      * signature, as the circuit does not check one on the mask branch.
      */
-    finishMask = async (params: IFinishMaskParams): Promise<Hex> => {
+    finishMask = (params: IFinishMaskParams): Promise<Hex> => {
         const { prepared, digest } = params;
-        const { encodeSolidityProof, finishMaskProof } = await import(
-            '@crisp-e3/sdk'
-        );
 
-        const proof = await finishMaskProof(prepared, digest);
-
-        return encodeSolidityProof(proof);
+        return this.finishProof((sdk) => sdk.finishMaskProof(prepared, digest));
     };
 
     /**
@@ -409,6 +395,15 @@ class CrispSdkUtils {
         const { decodeInputIdentity } = await import('@crisp-e3/sdk');
 
         return decodeInputIdentity(encodedProof);
+    };
+
+    // Both proofs come back in the same shape and leave as the same Solidity envelope.
+    private finishProof = async (
+        prove: (sdk: typeof CrispSdk) => Promise<ProofData>,
+    ): Promise<Hex> => {
+        const sdk = await import('@crisp-e3/sdk');
+
+        return sdk.encodeSolidityProof(await prove(sdk));
     };
 }
 

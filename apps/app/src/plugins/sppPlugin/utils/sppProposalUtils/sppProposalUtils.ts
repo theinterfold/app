@@ -105,7 +105,7 @@ class SppProposalUtils {
         const currentStage = this.getCurrentStage(proposal);
         const isAwaitingLateResult =
             currentStage != null &&
-            sppStageUtils.isAwaitingLateResult(proposal, currentStage);
+            sppStageUtils.isOnlyAwaitingLateResult(proposal, currentStage);
 
         return status === ProposalStatus.ACTIVE && isAwaitingLateResult
             ? ProposalStatus.PENDING

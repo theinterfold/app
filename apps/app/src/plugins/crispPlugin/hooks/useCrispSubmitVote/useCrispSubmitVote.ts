@@ -2,12 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { type Hex, isAddressEqual, size } from 'viem';
-import {
-    useSignTypedData,
-    useSwitchChain,
-    useWaitForTransactionReceipt,
-    useWriteContract,
-} from 'wagmi';
+import { useSignTypedData, useSwitchChain, useWriteContract } from 'wagmi';
 import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
 import type { VoteOption } from '@/plugins/tokenPlugin/types';
 import { networkDefinitions } from '@/shared/constants/networkDefinitions';
@@ -41,7 +36,7 @@ export enum CrispSubmitVoteStep {
     BROADCAST = 'BROADCAST',
 }
 
-export type CrispSubmitVoteState = 'idle' | 'pending' | 'success' | 'error';
+type CrispSubmitVoteState = 'idle' | 'pending' | 'success' | 'error';
 
 interface IUseCrispSubmitVoteBaseParams {
     /**
@@ -128,10 +123,6 @@ export interface IUseCrispSubmitVoteResult {
      */
     isVoteUpdate: boolean;
     /**
-     * Defines if the flow submits a mask, which has no signing step.
-     */
-    isMask: boolean;
-    /**
      * Defines if the voter's wallet sends the commitment, either because the voter chose it or
      * because the CRISP server did not relay the ballot itself.
      */
@@ -193,13 +184,7 @@ export const useCrispSubmitVote = (
     const [error, setError] = useState<Error>();
     const [isVoteUpdate, setIsVoteUpdate] = useState(false);
     const [isWalletSubmission, setIsWalletSubmission] = useState(false);
-    const [relayHash, setRelayHash] = useState<string>();
-    const [walletHash, setWalletHash] = useState<Hex>();
-
-    // What the receipt of the wallet submission must show, which only the run that sent it knows.
-    const expectedCommitment = useRef<ICrispCommitmentExpectation | undefined>(
-        undefined,
-    );
+    const [transactionHash, setTransactionHash] = useState<Hex>();
 
     // The server can take minutes to choose who sends a ballot, so the wait can outlive the
     // dialog, and a wallet prompt must not open from a dialog the voter already left.
@@ -211,39 +196,6 @@ export const useCrispSubmitVote = (
             isMounted.current = false;
         };
     }, []);
-
-    // The receipt settles a wallet submission. It is not handled by the pending transaction
-    // manager of the app, which resumes interrupted transactions: the proof only lives in memory
-    // and cannot be resumed after a reload.
-    const { data: receipt, error: receiptError } = useWaitForTransactionReceipt(
-        {
-            hash: walletHash,
-            chainId,
-            query: { enabled: walletHash != null },
-        },
-    );
-
-    useEffect(() => {
-        if (walletHash == null) {
-            return;
-        }
-
-        if (receipt != null && expectedCommitment.current != null) {
-            try {
-                crispBallotUtils.assertCommitted({
-                    receipt,
-                    expectation: expectedCommitment.current,
-                });
-                setState('success');
-            } catch (commitmentError) {
-                setError(commitmentError as Error);
-                setState('error');
-            }
-        } else if (receiptError != null) {
-            setError(receiptError);
-            setState('error');
-        }
-    }, [walletHash, receipt, receiptError]);
 
     // The round is only known once the proposal is resolved on-chain.
     const hasRound = e3Id != null && e3Id !== '';
@@ -292,7 +244,6 @@ export const useCrispSubmitVote = (
             roundId: e3Id,
             voter: address,
             available: availablePower,
-            randomize: randomizeWeight,
             counted: crispBallotWeightUtils.chooseWeight(
                 availablePower,
                 randomizeWeight,
@@ -317,9 +268,7 @@ export const useCrispSubmitVote = (
 
     const run = async () => {
         setError(undefined);
-        setRelayHash(undefined);
-        setWalletHash(undefined);
-        expectedCommitment.current = undefined;
+        setTransactionHash(undefined);
         setIsVoteUpdate(hasActiveSlot && !isMask);
         setIsWalletSubmission(method === CrispSubmitVoteMethod.DIRECT);
         setActiveStep(CrispSubmitVoteStep.ENCRYPT);
@@ -481,70 +430,60 @@ export const useCrispSubmitVote = (
                 encodedProof,
                 sendFromWallet: method === CrispSubmitVoteMethod.DIRECT,
             });
-            setRelayHash(crispBallotUtils.parseTransactionHash(view.tx_hash));
 
             const step = await crispBallotUtils.followStagedBallot({
                 network,
                 view,
                 isCancelled: () => !isMounted.current,
-                onView: (job) =>
-                    setRelayHash(
-                        crispBallotUtils.parseTransactionHash(job.tx_hash),
-                    ),
             });
 
             if (step == null || !isMounted.current) {
                 return;
             }
 
+            let hash: Hex;
+
             if (step.action === 'committed') {
-                // The server saying the commitment is on-chain is not enough, a ballot is only
-                // reported as submitted once the chain shows it.
-                if (step.transactionHash == null) {
+                hash = step.transactionHash;
+            } else {
+                if (params.maskTarget === CrispMaskTarget.RANDOM) {
                     throw new CrispError(
-                        'app.plugins.crisp.crispSubmitVoteDialog.error.commitmentUnconfirmed',
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.maskNotRelayed',
                     );
                 }
 
-                await crispBallotUtils.confirmRelayedCommitment({
-                    network,
-                    transactionHash: step.transactionHash,
-                    expectation,
+                // The wallet sends the payload attested by the server, which must be the ballot
+                // built above and not another one.
+                crispBallotUtils.assertAttestedPayload({
+                    identity: expectation.identity,
+                    payload: step.payload,
                 });
 
-                if (isMounted.current) {
-                    setState('success');
-                }
+                setIsWalletSubmission(true);
+                await switchToDaoChain();
 
-                return;
+                hash = await writeContractAsync({
+                    address: context.programAddress,
+                    chainId,
+                    abi: crispProgramAbi,
+                    functionName: 'publishInput',
+                    args: [roundId, step.payload],
+                });
             }
 
-            if (params.maskTarget === CrispMaskTarget.RANDOM) {
-                throw new CrispError(
-                    'app.plugins.crisp.crispSubmitVoteDialog.error.maskNotRelayed',
-                );
-            }
+            setTransactionHash(hash);
 
-            // The wallet sends the payload attested by the server, which must be the ballot built
-            // above and not another one.
-            crispBallotUtils.assertAttestedPayload({
-                identity: expectation.identity,
-                payload: step.payload,
+            // Neither the word of the server nor the wallet sending the transaction is enough, a
+            // ballot is only reported as submitted once the chain shows it. The receipt is not
+            // handled by the pending transaction manager of the app, which resumes interrupted
+            // transactions: the proof only lives in memory and cannot be resumed after a reload.
+            await crispBallotUtils.confirmCommitment({
+                network,
+                transactionHash: hash,
+                expectation,
             });
 
-            setIsWalletSubmission(true);
-            await switchToDaoChain();
-
-            const hash = await writeContractAsync({
-                address: context.programAddress,
-                chainId,
-                abi: crispProgramAbi,
-                functionName: 'publishInput',
-                args: [roundId, step.payload],
-            });
-
-            expectedCommitment.current = expectation;
-            setWalletHash(hash);
+            setState('success');
         } catch (submitError) {
             setError(crispBallotUtils.describeFailure(submitError));
             setState('error');
@@ -561,13 +500,12 @@ export const useCrispSubmitVote = (
         submitVote,
         activeStep,
         state,
-        transactionHash: walletHash ?? relayHash,
+        transactionHash,
         error,
         isRoundReady,
         roundError,
         hasActiveSlot,
         isVoteUpdate,
-        isMask,
         isWalletSubmission,
         countedShare,
         isLoading:
