@@ -483,9 +483,12 @@ describe('crispProposal utils', () => {
                 e3StageDeadline: 1_793_917_932,
             });
 
-            expect(crispProposalUtils.getRoundPhaseDeadline(proposal)).toEqual(
-                1_793_917_932_000,
-            );
+            expect(
+                crispProposalUtils.getRoundPhaseDeadline(
+                    proposal,
+                    'decrypting',
+                ),
+            ).toEqual(1_793_917_932_000);
         });
 
         it('is not shown while the window is open, the deadline being the computation one', () => {
@@ -497,7 +500,7 @@ describe('crispProposal utils', () => {
             });
 
             expect(
-                crispProposalUtils.getRoundPhaseDeadline(proposal),
+                crispProposalUtils.getRoundPhaseDeadline(proposal, 'voting'),
             ).toBeUndefined();
         });
     });

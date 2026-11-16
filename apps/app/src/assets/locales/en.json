@@ -2831,7 +2831,6 @@
             "submitMask": "Submit mask"
           },
           "alert": {
-            "error": "Your ballot could not be submitted.",
             "maskSubmitted": "Your mask was submitted. It does not change any vote.",
             "roundNotReady": "The ciphernode committee has not published its key yet. Ballots can be submitted shortly after voting opens.",
             "slotActive": "Your voting slot already holds an entry in this round, which can be your earlier ballot or a privacy mask. Submitting now replaces it.",

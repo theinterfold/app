@@ -3,6 +3,7 @@ import { getAddress, type Hex } from 'viem';
 import { governanceService } from '@/modules/governance/api/governanceService';
 import type { Network } from '@/shared/api/daoService';
 import { CrispError } from '../../types';
+import { crispBallotWeightUtils } from '../crispBallotWeightUtils';
 import { crispRoundUtils } from '../crispRoundUtils';
 
 // Largest page the backend serves.
@@ -47,26 +48,15 @@ export interface IPickMaskTargetParams {
 
 class CrispMaskUtils {
     /**
-     * Draws an index in `[0, length)` uniformly. A modulo of a 32-bit draw favours the low indices
-     * whenever the length is not a power of two, so draws in the uneven tail are rejected.
+     * Draws an index in `[0, length)` uniformly, through the same rejection sampling as the ballot
+     * weight.
      */
     drawIndex = (length: number): number => {
         if (!Number.isInteger(length) || length < 1) {
             throw new Error('There is nothing to draw from.');
         }
 
-        const range = 2 ** 32;
-        const limit = range - (range % length);
-        const buffer = new Uint32Array(1);
-
-        let draw: number;
-
-        do {
-            crypto.getRandomValues(buffer);
-            draw = buffer[0];
-        } while (draw >= limit);
-
-        return draw % length;
+        return Number(crispBallotWeightUtils.randomBelow(BigInt(length)));
     };
 
     /**

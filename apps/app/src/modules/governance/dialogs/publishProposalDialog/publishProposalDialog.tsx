@@ -117,13 +117,14 @@ export const PublishProposalDialog: React.FC<IPublishProposalDialogProps> = (
         (receipt: TransactionReceipt) => {
             const getSkippedBodies = pluginRegistryUtils.getSlotFunction<
                 ICreateProposalSkippedBodiesParams,
-                string[]
+                boolean
             >({
                 slotId: GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_SKIPPED_BODIES,
                 pluginId: plugin.interfaceType,
             });
-            const skippedBodies = getSkippedBodies?.({ plugin, receipt }) ?? [];
-            setHasSkippedBodies(skippedBodies.length > 0);
+            setHasSkippedBodies(
+                getSkippedBodies?.({ plugin, receipt }) ?? false,
+            );
         },
         [plugin],
     );

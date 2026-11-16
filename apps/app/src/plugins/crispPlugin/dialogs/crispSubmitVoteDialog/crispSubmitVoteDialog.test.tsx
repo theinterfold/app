@@ -37,7 +37,6 @@ describe('<CrispSubmitVoteDialog /> component', () => {
         isRoundReady: true,
         hasActiveSlot: false,
         isVoteUpdate: false,
-        isMask: false,
         isWalletSubmission: false,
         isLoading: false,
         ...result,

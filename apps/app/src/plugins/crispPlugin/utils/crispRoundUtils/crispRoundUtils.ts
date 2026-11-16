@@ -59,10 +59,6 @@ export interface ICrispBallotContext extends ICrispE3Record {
      */
     votingPower: bigint;
     /**
-     * Exclusive end of the window in which a ballot can be committed, in seconds.
-     */
-    commitmentDeadline: bigint;
-    /**
      * ABI-encoded BFV parameters of the round, to verify the committee key against.
      */
     encodedParams: Hex;
@@ -213,11 +209,10 @@ class CrispRoundUtils {
         /**
          * Defines if the slot belongs to the connected voter, which only changes how a refusal is
          * worded.
-         * @default true
          */
-        isOwnSlot?: boolean;
+        isOwnSlot: boolean;
     }): Promise<ICrispBallotContext> => {
-        const { network, pluginAddress, e3Id, slot, isOwnSlot = true } = params;
+        const { network, pluginAddress, e3Id, slot, isOwnSlot } = params;
         const chainId = networkDefinitions[network].id;
 
         const record = await this.readE3Record({
@@ -287,7 +282,7 @@ class CrispRoundUtils {
             );
         }
 
-        return { ...record, votingPower, commitmentDeadline, encodedParams };
+        return { ...record, votingPower, encodedParams };
     };
 
     /**

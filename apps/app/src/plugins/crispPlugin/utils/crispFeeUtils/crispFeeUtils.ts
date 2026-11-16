@@ -58,13 +58,8 @@ class CrispFeeUtils {
     // forward while the user is in the wizard, so the exact shortfall would make the proposal revert
     readonly feeBufferPercent = BigInt(10);
 
-    shortfall = (quote?: bigint, credit?: bigint): bigint =>
-        quote == null || credit == null || credit >= quote
-            ? BigInt(0)
-            : quote - credit;
-
-    depositAmount = (quote?: bigint, credit?: bigint): bigint => {
-        const shortfall = this.shortfall(quote, credit);
+    depositAmount = (quote: bigint, credit: bigint): bigint => {
+        const shortfall = credit >= quote ? BigInt(0) : quote - credit;
 
         return shortfall + (shortfall * this.feeBufferPercent) / BigInt(100);
     };

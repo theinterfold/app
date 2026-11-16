@@ -136,6 +136,7 @@ describe('crispRound utils', () => {
             pluginAddress: plugin as `0x${string}`,
             e3Id: BigInt(7),
             slot: slot as `0x${string}`,
+            isOwnSlot: true,
         };
 
         it('returns the context of a round the voter can vote in', async () => {

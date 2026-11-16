@@ -1,6 +1,5 @@
 'use client';
 
-import { addressUtils } from '@aragon/gov-ui-kit';
 import { DateTime } from 'luxon';
 import { GovernanceSlotId } from '@/modules/governance/constants/moduleSlots';
 import type { IDaoPlugin } from '@/shared/api/daoService';
@@ -31,11 +30,10 @@ export const SppCreateProposalSettingsForm: React.FC<
     // The bodies of the process, as the publish dialog collects their prerequisite steps
     const bodies = useDaoPlugins({
         daoId,
+        parentPlugin: plugin.address,
         includeSubPlugins: true,
         includeLinkedAccounts: true,
-    })?.filter((body) =>
-        addressUtils.isAddressEqual(body.meta.parentPlugin, plugin.address),
-    );
+    });
 
     return (
         <div className="flex flex-col gap-6 md:gap-12">

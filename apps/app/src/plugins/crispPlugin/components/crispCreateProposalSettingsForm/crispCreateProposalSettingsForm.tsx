@@ -40,27 +40,23 @@ export const CrispCreateProposalSettingsForm: React.FC<
     );
 
     // The fee scales with the voting window, so it is quoted for the dates of the form
-    const dateValues = useWatch<ICreateProposalEndDateForm>() as
-        | ICreateProposalEndDateForm
-        | undefined;
+    const dateValues =
+        useWatch<ICreateProposalEndDateForm>() as ICreateProposalEndDateForm;
 
-    const minEndTime = dateValues?.startTimeFixed
+    const minEndTime = dateValues.startTimeFixed
         ? dateUtils.parseFixedDate(dateValues.startTimeFixed)
         : DateTime.now();
 
     // A half-entered date quotes the default window instead of throwing
     const quoteCalls = useMemo(() => {
-        const defaultWindow = {} as ICreateCrispProposalFormData;
-
         try {
             return crispFeeUtils.getQuoteCalls({
-                proposal: (dateValues ??
-                    defaultWindow) as ICreateCrispProposalFormData,
+                proposal: dateValues as ICreateCrispProposalFormData,
                 now: Math.floor(DateTime.now().toSeconds()),
             });
         } catch {
             return crispFeeUtils.getQuoteCalls({
-                proposal: defaultWindow,
+                proposal: {} as ICreateCrispProposalFormData,
                 now: 0,
             });
         }

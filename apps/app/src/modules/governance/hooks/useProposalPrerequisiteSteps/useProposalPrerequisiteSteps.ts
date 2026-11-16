@@ -1,4 +1,3 @@
-import { addressUtils } from '@aragon/gov-ui-kit';
 import { useCallback, useMemo, useState } from 'react';
 import type { IDao, IDaoPlugin } from '@/shared/api/daoService';
 import type { ITransactionDialogStep } from '@/shared/components/transactionDialog';
@@ -70,14 +69,11 @@ export const useProposalPrerequisiteSteps = (
     // list keeps its identity across renders: the transaction dialog re-applies its steps on
     // every new list.
     const proposalPlugins = useMemo(() => {
-        const bodies = daoUtils
-            .getDaoPlugins(dao, {
-                includeSubPlugins: true,
-                includeLinkedAccounts: true,
-            })
-            ?.filter((body) =>
-                addressUtils.isAddressEqual(body.parentPlugin, plugin.address),
-            );
+        const bodies = daoUtils.getDaoPlugins(dao, {
+            parentPlugin: plugin.address,
+            includeSubPlugins: true,
+            includeLinkedAccounts: true,
+        });
 
         return [plugin, ...(bodies ?? [])];
     }, [dao, plugin]);

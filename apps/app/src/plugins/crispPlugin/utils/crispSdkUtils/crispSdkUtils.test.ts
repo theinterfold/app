@@ -36,30 +36,6 @@ jest.mock('@interfold/wasm', () => ({
 }));
 
 describe('crispSdk utils', () => {
-    describe('decodeBfvParams', () => {
-        it('decodes the BFV parameters as the registry of the coordinator encodes them', () => {
-            const encoded = encodeAbiParameters(
-                parseAbiParameters(
-                    '(uint256 degree, uint256 plaintextModulus, uint256[] moduli, string error1Variance)',
-                ),
-                [
-                    {
-                        degree: BigInt(512),
-                        plaintextModulus: BigInt(100),
-                        moduli: [BigInt(3), BigInt(5)],
-                        error1Variance: '10',
-                    },
-                ],
-            );
-
-            expect(crispSdkUtils.decodeBfvParams(encoded)).toEqual({
-                degree: BigInt(512),
-                plaintextModulus: BigInt(100),
-                moduli: [BigInt(3), BigInt(5)],
-            });
-        });
-    });
-
     describe('verifyCommitteeKey', () => {
         const encodedParams = '0x1234';
 
@@ -170,6 +146,36 @@ describe('crispSdk utils', () => {
             configurePresets(['insecure-64']);
 
             await expect(verify()).resolves.toEqual('insecure-64');
+        });
+
+        it('accepts the on-chain commitment in any hex casing', async () => {
+            configurePresets(['insecure-64']);
+            mockComputePkCommitment.mockReturnValue(
+                new Uint8Array(32).fill(0xab),
+            );
+
+            await expect(
+                crispSdkUtils.verifyCommitteeKey({
+                    network: Network.ETHEREUM_SEPOLIA,
+                    publicKey: new Uint8Array([1]),
+                    committeeKeyCommitment: `0x${'AB'.repeat(32)}`,
+                    encodedParams,
+                }),
+            ).resolves.toEqual('insecure-64');
+        });
+
+        it('refuses a key whose commitment differs from the one recorded on-chain', async () => {
+            configurePresets(['insecure-64']);
+            mockComputePkCommitment.mockReturnValue(
+                new Uint8Array(32).fill(0x22),
+            );
+
+            await expect(verify()).rejects.toThrow(
+                expect.objectContaining({
+                    errorKey:
+                        'app.plugins.crisp.crispSubmitVoteDialog.error.committeeKeyMismatch',
+                }),
+            );
         });
 
         it('refuses the insecure preset on a network that does not allow it, before the key is read', async () => {

@@ -206,7 +206,7 @@ class SppTransactionUtils {
     // create its proposal, e.g. when it runs out of gas, which leaves a proposal that can never pass.
     getSkippedBodies = (
         params: ICreateProposalSkippedBodiesParams,
-    ): string[] => {
+    ): boolean => {
         const { plugin, receipt } = params;
         const logs = parseEventLogs({
             abi: sppPluginEventsAbi,
@@ -214,11 +214,9 @@ class SppTransactionUtils {
             logs: receipt.logs,
         });
 
-        return logs
-            .filter((log) =>
-                addressUtils.isAddressEqual(log.address, plugin.address),
-            )
-            .map((log) => log.args.body);
+        return logs.some((log) =>
+            addressUtils.isAddressEqual(log.address, plugin.address),
+        );
     };
 
     getUninstallHelpers = (params: IGetUninstallHelpersParams): Hex[] => {

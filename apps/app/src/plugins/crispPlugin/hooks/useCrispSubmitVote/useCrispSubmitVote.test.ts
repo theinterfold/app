@@ -8,8 +8,6 @@ import * as CrispService from '../../api/crispService';
 import { crispService } from '../../api/crispService';
 import {
     generateCrispAttestedPayload,
-    generateCrispCommitLog,
-    generateCrispCommitReceipt,
     generateCrispInputIdentity,
     generateCrispPluginSettings,
     generateCrispProposal,
@@ -37,10 +35,7 @@ describe('useCrispSubmitVote', () => {
     const finishBallotSpy = jest.spyOn(crispSdkUtils, 'finishBallot');
     const finishMaskSpy = jest.spyOn(crispSdkUtils, 'finishMask');
     const decodeIdentitySpy = jest.spyOn(crispSdkUtils, 'decodeInputIdentity');
-    const confirmRelayedSpy = jest.spyOn(
-        crispBallotUtils,
-        'confirmRelayedCommitment',
-    );
+    const confirmSpy = jest.spyOn(crispBallotUtils, 'confirmCommitment');
     const pickMaskTargetSpy = jest.spyOn(crispMaskUtils, 'pickMaskTarget');
     const broadcastSpy = jest.spyOn(crispService, 'broadcastBallot');
     const availabilitySpy = jest.spyOn(crispService, 'getVoteAvailability');
@@ -56,10 +51,6 @@ describe('useCrispSubmitVote', () => {
     const useSignTypedDataSpy = jest.spyOn(wagmi, 'useSignTypedData');
     const useSwitchChainSpy = jest.spyOn(wagmi, 'useSwitchChain');
     const useWriteContractSpy = jest.spyOn(wagmi, 'useWriteContract');
-    const useWaitForReceiptSpy = jest.spyOn(
-        wagmi,
-        'useWaitForTransactionReceipt',
-    );
 
     const signTypedDataAsync = jest.fn();
     const switchChainAsync = jest.fn();
@@ -136,9 +127,6 @@ describe('useCrispSubmitVote', () => {
         useWriteContractSpy.mockReturnValue({
             writeContractAsync,
         } as unknown as wagmi.UseWriteContractReturnType);
-        useWaitForReceiptSpy.mockReturnValue({
-            data: undefined,
-        } as unknown as wagmi.UseWaitForTransactionReceiptReturnType);
         writeContractAsync.mockResolvedValue('0xtxhash');
         signTypedDataAsync.mockResolvedValue(signature);
         readContextSpy.mockResolvedValue({
@@ -148,7 +136,6 @@ describe('useCrispSubmitVote', () => {
             committeeKeyCommitment: '0x12',
             paramSet: 1,
             votingPower: BigInt(300),
-            commitmentDeadline: BigInt(10),
             encodedParams: '0x34',
         });
         readDigestSpy.mockResolvedValue('0xdigest');
@@ -162,7 +149,7 @@ describe('useCrispSubmitVote', () => {
         finishMaskSpy.mockResolvedValue('0xmaskproof');
         pickMaskTargetSpy.mockResolvedValue(maskTarget);
         decodeIdentitySpy.mockResolvedValue(voteIdentity);
-        confirmRelayedSpy.mockResolvedValue(undefined);
+        confirmSpy.mockResolvedValue(undefined);
         broadcastSpy.mockResolvedValue({
             status: 'success',
             tx_hash: txHash,
@@ -274,7 +261,7 @@ describe('useCrispSubmitVote', () => {
         expect(result.current.isWalletSubmission).toBe(true);
     });
 
-    it('settles a wallet submission when its receipt is mined', async () => {
+    it('settles a wallet submission once the chain shows its commitment', async () => {
         mockQueries();
         broadcastSpy.mockResolvedValue({
             status: 'ready_for_commitment',
@@ -283,15 +270,6 @@ describe('useCrispSubmitVote', () => {
             encoded_proof: attestedPayload,
             message: null,
         });
-        useWaitForReceiptSpy.mockReturnValue({
-            data: generateCrispCommitReceipt([
-                generateCrispCommitLog({
-                    ...voteIdentity,
-                    address: programAddress,
-                    e3Id: BigInt(e3Id),
-                }),
-            ]),
-        } as unknown as wagmi.UseWaitForTransactionReceiptReturnType);
 
         const { result } = renderHook(() =>
             useCrispSubmitVote({
@@ -306,36 +284,14 @@ describe('useCrispSubmitVote', () => {
         await waitFor(() => expect(result.current.state).toEqual('success'));
 
         expect(result.current.transactionHash).toEqual('0xtxhash');
-    });
-
-    it('surfaces an error when the wallet submission is mined as reverted', async () => {
-        mockQueries();
-        broadcastSpy.mockResolvedValue({
-            status: 'ready_for_commitment',
-            tx_hash: null,
-            job_id: 'job-1',
-            encoded_proof: attestedPayload,
-            message: null,
-        });
-        useWaitForReceiptSpy.mockReturnValue({
-            data: { status: 'reverted' },
-        } as unknown as wagmi.UseWaitForTransactionReceiptReturnType);
-
-        const { result } = renderHook(() =>
-            useCrispSubmitVote({
-                proposal,
-                voteOption: VoteOption.YES,
-                method: CrispSubmitVoteMethod.DIRECT,
-            }),
-        );
-
-        act(() => result.current.submitVote());
-
-        await waitFor(() => expect(result.current.state).toEqual('error'));
-
-        expect(result.current.error).toMatchObject({
-            errorKey:
-                'app.plugins.crisp.crispSubmitVoteDialog.error.transactionReverted',
+        expect(confirmSpy).toHaveBeenCalledWith({
+            network: Network.ETHEREUM_SEPOLIA,
+            transactionHash: '0xtxhash',
+            expectation: {
+                programAddress,
+                e3Id: BigInt(e3Id),
+                identity: voteIdentity,
+            },
         });
     });
 
@@ -588,7 +544,6 @@ describe('useCrispSubmitVote', () => {
             committeeKeyCommitment: '0x12',
             paramSet: 1,
             votingPower: BigInt(250),
-            commitmentDeadline: BigInt(10),
             encodedParams: '0x34',
         });
 
@@ -634,7 +589,6 @@ describe('useCrispSubmitVote', () => {
                 committeeKeyCommitment: '0x12',
                 paramSet: 1,
                 votingPower: BigInt(40),
-                commitmentDeadline: BigInt(10),
                 encodedParams: '0x34',
             });
         });
@@ -643,8 +597,6 @@ describe('useCrispSubmitVote', () => {
             mockQueries();
 
             const { result } = renderMask(CrispMaskTarget.SELF);
-
-            expect(result.current.isMask).toBe(true);
 
             act(() => result.current.submitVote());
 
@@ -780,7 +732,7 @@ describe('useCrispSubmitVote', () => {
                 expect.objectContaining({ sendFromWallet: false }),
             );
             expect(result.current.isWalletSubmission).toBe(false);
-            expect(confirmRelayedSpy).toHaveBeenCalledWith(
+            expect(confirmSpy).toHaveBeenCalledWith(
                 expect.objectContaining({
                     expectation: expect.objectContaining({
                         identity: targetIdentity,
@@ -857,7 +809,7 @@ describe('useCrispSubmitVote', () => {
                 expect(result.current.state).toEqual('success'),
             );
 
-            expect(confirmRelayedSpy).toHaveBeenCalledWith({
+            expect(confirmSpy).toHaveBeenCalledWith({
                 network: Network.ETHEREUM_SEPOLIA,
                 transactionHash: txHash,
                 expectation: {
@@ -871,7 +823,7 @@ describe('useCrispSubmitVote', () => {
         it('does not report success of a relayed ballot the chain does not confirm', async () => {
             mockQueries();
             const refusal = new CrispError('not committed');
-            confirmRelayedSpy.mockRejectedValue(refusal);
+            confirmSpy.mockRejectedValue(refusal);
 
             const { result } = submit();
 
@@ -898,7 +850,7 @@ describe('useCrispSubmitVote', () => {
                 errorKey:
                     'app.plugins.crisp.crispSubmitVoteDialog.error.commitmentUnconfirmed',
             });
-            expect(confirmRelayedSpy).not.toHaveBeenCalled();
+            expect(confirmSpy).not.toHaveBeenCalled();
         });
 
         it('refuses a transaction hash that is not a hash and never links to it', async () => {
@@ -920,7 +872,7 @@ describe('useCrispSubmitVote', () => {
                     'app.plugins.crisp.crispSubmitVoteDialog.error.transactionHashInvalid',
             });
             expect(result.current.transactionHash).toBeUndefined();
-            expect(confirmRelayedSpy).not.toHaveBeenCalled();
+            expect(confirmSpy).not.toHaveBeenCalled();
         });
 
         it('sends nothing when the attested payload names another ballot', async () => {
@@ -944,27 +896,18 @@ describe('useCrispSubmitVote', () => {
             expect(switchChainAsync).not.toHaveBeenCalled();
         });
 
-        it('does not report success of a wallet submission whose receipt holds no commitment of the ballot', async () => {
+        it('does not report success of a wallet submission the chain does not confirm', async () => {
             mockQueries();
             handBackToWallet();
-            useWaitForReceiptSpy.mockReturnValue({
-                data: generateCrispCommitReceipt([
-                    generateCrispCommitLog({
-                        ...voteIdentity,
-                        address: programAddress,
-                        e3Id: BigInt(e3Id) + BigInt(1),
-                    }),
-                ]),
-            } as unknown as wagmi.UseWaitForTransactionReceiptReturnType);
+            const refusal = new CrispError('not committed');
+            confirmSpy.mockRejectedValue(refusal);
 
             const { result } = submit(CrispSubmitVoteMethod.DIRECT);
 
             await waitFor(() => expect(result.current.state).toEqual('error'));
 
-            expect(result.current.error).toMatchObject({
-                errorKey:
-                    'app.plugins.crisp.crispSubmitVoteDialog.error.commitmentNotFound',
-            });
+            expect(result.current.error).toBe(refusal);
+            expect(result.current.transactionHash).toEqual('0xtxhash');
         });
     });
 });

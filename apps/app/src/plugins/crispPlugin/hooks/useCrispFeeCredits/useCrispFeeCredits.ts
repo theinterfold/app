@@ -1,11 +1,12 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { BaseError, erc20Abi, type Hex, UserRejectedRequestError } from 'viem';
+import { erc20Abi, type Hex } from 'viem';
 import { useReadContract, useReadContracts, useWriteContract } from 'wagmi';
 import { readContract, waitForTransactionReceipt } from 'wagmi/actions';
 import { wagmiConfig } from '@/modules/application/constants/wagmi';
 import { useWalletAccount } from '@/modules/application/hooks/useWalletAccount';
+import { isUserRejectionError } from '@/modules/safe/hooks/useSafeTransactionExecution';
 import { useDaoChain } from '@/shared/hooks/useDaoChain';
 import { useToken } from '@/shared/hooks/useToken';
 import { monitoringUtils } from '@/shared/utils/monitoringUtils';
@@ -191,7 +192,7 @@ export const useCrispFeeCredits = (
 
             return true;
         } catch (error) {
-            if (isUserRejection(error)) {
+            if (isUserRejectionError(error)) {
                 return fail('rejected');
             }
 
@@ -241,7 +242,3 @@ export const useCrispFeeCredits = (
         refetchCredit,
     };
 };
-
-const isUserRejection = (error: unknown): boolean =>
-    error instanceof BaseError &&
-    error.walk((cause) => cause instanceof UserRejectedRequestError) != null;

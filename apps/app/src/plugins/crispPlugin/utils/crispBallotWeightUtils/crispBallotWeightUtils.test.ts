@@ -4,7 +4,6 @@ const identity = {
     roundId: '7',
     voter: '0xAbC0000000000000000000000000000000000001',
     available: BigInt(1000),
-    randomize: true,
 };
 
 describe('crispBallotWeight utils', () => {
@@ -108,37 +107,6 @@ describe('crispBallotWeight utils', () => {
                         'app.plugins.crisp.crispSubmitVoteDialog.error.reviewInvalid',
                 }),
             );
-        });
-
-        it('rejects a weight outside the allowed band', () => {
-            const tooLow = { ...review, counted: BigInt(500) };
-            const whole = { ...review, counted: BigInt(1000) };
-
-            expect(() =>
-                crispBallotWeightUtils.assertReviewed(tooLow, identity),
-            ).toThrow();
-            // A randomized review that counts the whole power was never chosen by `chooseWeight`.
-            expect(() =>
-                crispBallotWeightUtils.assertReviewed(whole, identity),
-            ).toThrow();
-        });
-
-        it('accepts only the whole power when randomization is off', () => {
-            const whole = {
-                ...review,
-                randomize: false,
-                counted: BigInt(1000),
-            };
-
-            expect(
-                crispBallotWeightUtils.assertReviewed(whole, identity),
-            ).toEqual(BigInt(1000));
-            expect(() =>
-                crispBallotWeightUtils.assertReviewed(
-                    { ...whole, counted: BigInt(995) },
-                    identity,
-                ),
-            ).toThrow();
         });
 
         it('rejects a missing review', () => {

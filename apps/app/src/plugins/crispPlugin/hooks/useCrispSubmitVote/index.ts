@@ -1,5 +1,4 @@
 export type {
-    CrispSubmitVoteState,
     IUseCrispSubmitVoteParams,
     IUseCrispSubmitVoteResult,
 } from './useCrispSubmitVote';

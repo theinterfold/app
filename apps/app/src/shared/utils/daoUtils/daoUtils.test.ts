@@ -595,6 +595,72 @@ describe('dao utils', () => {
             ).toEqual([plugins[0], plugins[1]]);
         });
 
+        describe('parentPlugin', () => {
+            const processAddress = '0x2222222222222222222222222222222222222222';
+            const bodyAddress = '0x1111111111111111111111111111111111111111';
+            const otherBodyAddress =
+                '0x3333333333333333333333333333333333333333';
+
+            it('returns the bodies that name the process as their parent, without the process', () => {
+                const process = generateDaoPlugin({
+                    address: processAddress,
+                    interfaceType: PluginInterfaceType.SPP,
+                    isProcess: true,
+                });
+                const body = generateDaoPlugin({
+                    address: bodyAddress,
+                    interfaceType: PluginInterfaceType.TOKEN_VOTING,
+                    isBody: true,
+                    isSubPlugin: true,
+                    parentPlugin: processAddress,
+                });
+                const other = generateDaoPlugin({
+                    address: otherBodyAddress,
+                    interfaceType: PluginInterfaceType.TOKEN_VOTING,
+                    isBody: true,
+                    isSubPlugin: true,
+                });
+                const dao = generateDao({ plugins: [process, body, other] });
+
+                expect(
+                    daoUtils.getDaoPlugins(dao, {
+                        parentPlugin: processAddress,
+                        includeSubPlugins: true,
+                    }),
+                ).toEqual([body]);
+            });
+
+            // The link as the process carries it, for the responses that fill only this end.
+            it('returns the bodies that are only listed in the sub-plugins of the process', () => {
+                const process = generateDaoPlugin({
+                    address: processAddress,
+                    interfaceType: PluginInterfaceType.SPP,
+                    isProcess: true,
+                    subPlugins: [{ addresses: [bodyAddress], stageIndex: 0 }],
+                });
+                const body = generateDaoPlugin({
+                    address: bodyAddress,
+                    interfaceType: PluginInterfaceType.TOKEN_VOTING,
+                    isBody: true,
+                    isSubPlugin: true,
+                });
+                const other = generateDaoPlugin({
+                    address: otherBodyAddress,
+                    interfaceType: PluginInterfaceType.TOKEN_VOTING,
+                    isBody: true,
+                    isSubPlugin: true,
+                });
+                const dao = generateDao({ plugins: [process, body, other] });
+
+                expect(
+                    daoUtils.getDaoPlugins(dao, {
+                        parentPlugin: processAddress,
+                        includeSubPlugins: true,
+                    }),
+                ).toEqual([body]);
+            });
+        });
+
         it('excludes linked account plugins when includeLinkedAccounts is false', () => {
             const linkedAccountAddress = '0xLinkedAccountAddress';
             const linkedAccount = generateLinkedAccount({

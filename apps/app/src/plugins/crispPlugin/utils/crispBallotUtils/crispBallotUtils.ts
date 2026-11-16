@@ -24,9 +24,9 @@ import { CrispError } from '../../types';
 
 type CrispCommitmentStep =
     /**
-     * The server reports the commitment on-chain. The hash is null when the server did not send it.
+     * The server reports the commitment on-chain.
      */
-    | { action: 'committed'; transactionHash: Hex | null }
+    | { action: 'committed'; transactionHash: Hex }
     /**
      * The voter's wallet sends the attested payload.
      */
@@ -70,10 +70,6 @@ export interface IFollowStagedBallotParams {
      * Stops following the ballot, for example when the voter left the page.
      */
     isCancelled: () => boolean;
-    /**
-     * Called with every new view of the staged ballot.
-     */
-    onView: (view: ICrispVoteResponse) => void;
 }
 
 // How often the job is read while the server chooses who sends the commitment, and how long the
@@ -169,7 +165,7 @@ class CrispBallotUtils {
     followStagedBallot = async (
         params: IFollowStagedBallotParams,
     ): Promise<CrispCommitmentStep | undefined> => {
-        const { network, view, isCancelled, onView } = params;
+        const { network, view, isCancelled } = params;
 
         const deadline = Date.now() + waitTimeout;
         let step = this.decideCommitmentStep(view);
@@ -188,7 +184,6 @@ class CrispBallotUtils {
             }
 
             if (read.job != null && read.job.status !== 'pending_commitment') {
-                onView(read.job);
                 step = this.decideCommitmentStep(read.job);
             } else if (Date.now() >= deadline) {
                 throw (
@@ -308,12 +303,13 @@ class CrispBallotUtils {
     };
 
     /**
-     * Confirms on-chain that the transaction the server reported committed the ballot of the voter,
-     * as the word of the server is not enough to report a ballot as submitted.
+     * Confirms on-chain that a transaction, reported by the server or sent by the voter's wallet,
+     * committed the ballot of the voter, as the word of the server is not enough to report a ballot
+     * as submitted.
      *
      * @throws When the transaction cannot be read in time, reverted or committed something else.
      */
-    confirmRelayedCommitment = async (params: {
+    confirmCommitment = async (params: {
         network: Network;
         transactionHash: Hex;
         expectation: ICrispCommitmentExpectation;
@@ -429,13 +425,18 @@ class CrispBallotUtils {
             return { action: 'submit', payload: view.encoded_proof as Hex };
         }
 
-        // No hash for a commitment the server did not send, for example one the voter's wallet
-        // sent earlier.
+        // A commitment the server did not send, for example one the voter's wallet sent earlier,
+        // has no hash to confirm on-chain, and a ballot is not reported as submitted without it.
         if (
             view.status === 'pending_availability' ||
             view.status === 'success'
         ) {
-            return { action: 'committed', transactionHash: null };
+            return {
+                action: 'error',
+                error: new CrispError(
+                    'app.plugins.crisp.crispSubmitVoteDialog.error.commitmentUnconfirmed',
+                ),
+            };
         }
 
         return this.buildErrorStep(

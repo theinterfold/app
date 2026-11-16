@@ -432,15 +432,15 @@ describe('<PublishProposalDialog /> component', () => {
     });
 
     it.each([
-        { skippedBodies: ['0xBody'], isWarned: true },
-        { skippedBodies: [], isWarned: false },
+        { hasSkippedBodies: true, isWarned: true },
+        { hasSkippedBodies: false, isWarned: false },
     ])(
-        'warns that the proposal cannot pass only when the process skipped a body ($skippedBodies)',
-        ({ skippedBodies, isWarned }) => {
+        'warns that the proposal cannot pass only when the process skipped a body ($hasSkippedBodies)',
+        ({ hasSkippedBodies, isWarned }) => {
             getSlotFunctionSpy.mockImplementation(({ slotId }) =>
                 slotId ===
                 GovernanceSlotId.GOVERNANCE_CREATE_PROPOSAL_SKIPPED_BODIES
-                    ? () => skippedBodies
+                    ? () => hasSkippedBodies
                     : undefined,
             );
             render(createTestComponent({ location: generateDialogLocation() }));

@@ -2,9 +2,7 @@ import type { IDaoPlugin } from '@/shared/api/daoService';
 import type { ITransactionDialogStep } from '@/shared/components/transactionDialog';
 import type { IProposalCreate } from '../dialogs/publishProposalDialog';
 
-export interface ICreateProposalPrerequisiteStepsParams<
-    TProposal extends IProposalCreate = IProposalCreate,
-> {
+export interface ICreateProposalPrerequisiteStepsParams {
     /**
      * ID of the DAO to create the proposal for.
      */
@@ -16,7 +14,7 @@ export interface ICreateProposalPrerequisiteStepsParams<
     /**
      * Form values collected on the create-proposal wizard.
      */
-    proposal: TProposal;
+    proposal: IProposalCreate;
     /**
      * Advances the publish dialog, must be called when the step completes.
      */

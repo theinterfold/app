@@ -297,7 +297,7 @@ class SppStageUtils {
      * A body without a sub-proposal (Safe, external address) that has not reported can still act
      * past the window, so its stage is not waiting.
      */
-    isAwaitingLateResult = (
+    isOnlyAwaitingLateResult = (
         proposal: ISppProposal,
         stage: ISppStage,
     ): boolean => {

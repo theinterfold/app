@@ -16,12 +16,12 @@ import { CrispSetupMembership } from './components/crispSetupMembership';
 import { CrispSubmitVote } from './components/crispSubmitVote';
 import { CrispVoteList } from './components/crispVoteList';
 import { crispPlugin } from './constants/crispPlugin';
-import { useCrispActions } from './hooks/useCrispActions';
 import { useCrispCreateProposalPrerequisiteSteps } from './hooks/useCrispCreateProposalPrerequisiteSteps';
 import { useCrispGovernanceSettings } from './hooks/useCrispGovernanceSettings';
 import { useCrispNormalizeActions } from './hooks/useCrispNormalizeActions';
 import { useCrispPermissionCheckProposalCreation } from './hooks/useCrispPermissionCheckProposalCreation';
 import { useCrispPermissionCheckVoteSubmission } from './hooks/useCrispPermissionCheckVoteSubmission';
+import { crispActionUtils } from './utils/crispActionUtils';
 import { crispBodyUtils } from './utils/crispBodyUtils';
 import { crispFeeUtils } from './utils/crispFeeUtils';
 import { crispProposalUtils } from './utils/crispProposalUtils';
@@ -129,7 +129,7 @@ export const initialiseCrispPlugin = () => {
         .registerSlotFunction({
             slotId: GovernanceSlotId.GOVERNANCE_PLUGIN_ACTIONS,
             pluginId: crispPlugin.id,
-            function: useCrispActions,
+            function: crispActionUtils.getCrispActions,
         })
         .registerSlotFunction({
             slotId: GovernanceSlotId.GOVERNANCE_PLUGIN_NORMALIZE_ACTIONS,

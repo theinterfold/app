@@ -12,6 +12,7 @@ import { bigIntUtils } from '@/shared/utils/bigIntUtils';
 import { daoUtils } from '@/shared/utils/daoUtils';
 import { permissionNameUtils } from '@/shared/utils/permissionNameUtils';
 import { CrispUpdateSettingsAction } from '../../components/crispActions/crispUpdateSettingsAction';
+import type { ICrispSetupGovernanceForm } from '../../components/crispSetupGovernance';
 import {
     CrispProposalActionType,
     type ICrispActionChangeSettings,
@@ -54,14 +55,7 @@ export interface IBuildUpdateSettingsDataParams {
     /**
      * Settings as edited in the proposal form (voting powers in human token units).
      */
-    settings: Pick<
-        ICrispPluginSettings,
-        | 'minParticipation'
-        | 'supportThreshold'
-        | 'minProposerVotingPower'
-        | 'minVoterVotingPower'
-        | 'minDuration'
-    >;
+    settings: ICrispSetupGovernanceForm;
     /**
      * Decimals of the token the voting powers are expressed in.
      */
